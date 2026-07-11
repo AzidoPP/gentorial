@@ -1,0 +1,43 @@
+# Dependencies and package-manager state
+node_modules/
+.pnpm-store/
+
+# Build and test output
+dist/
+coverage/
+*.tsbuildinfo
+**/.vitepress/cache/
+**/.vitepress/dist/
+playwright-report/
+test-results/
+
+# Gentorial generated state
+.gentorial/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+*.local
+
+# Logs and packaged archives
+*.log
+*.tgz
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editors and operating systems
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# Temporary files
+.tmp/
+tmp/
+*.swp
+*.swo

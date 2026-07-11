@@ -1,0 +1,20 @@
+{
+  "name": "@gentorial/example-minimal",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vitepress dev docs",
+    "build": "vitepress build docs",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@gentorial/ai": "workspace:^",
+    "@gentorial/core": "workspace:^",
+    "@gentorial/engine-vitepress": "workspace:^",
+    "@gentorial/runtime-vue": "workspace:^",
+    "@gentorial/theme-default": "workspace:^",
+    "vitepress": "^1.6.4",
+    "vue": "^3.5.39"
+  }
+}

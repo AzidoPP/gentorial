@@ -1,0 +1,42 @@
+{
+  "name": "@gentorial/runtime-vue",
+  "version": "0.0.0",
+  "description": "Vue runtime and safe lesson-block rendering for Gentorial.",
+  "type": "module",
+  "sideEffects": false,
+  "files": [
+    "dist"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --sourcemap --clean --external vue && tsc --emitDeclarationOnly",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --config ../../vitest.config.ts --root ../.. packages/runtime-vue/src",
+    "pack:check": "pnpm pack --dry-run"
+  },
+  "keywords": [
+    "gentorial",
+    "vue",
+    "education"
+  ],
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@gentorial/core": "workspace:^"
+  },
+  "peerDependencies": {
+    "vue": "^3.5.39"
+  },
+  "devDependencies": {
+    "vue": "^3.5.39"
+  }
+}

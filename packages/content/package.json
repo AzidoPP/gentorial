@@ -1,0 +1,40 @@
+{
+  "name": "@gentorial/content",
+  "version": "0.0.0",
+  "description": "Framework-neutral lesson parsing and Node.js course compilation for Gentorial.",
+  "type": "module",
+  "sideEffects": false,
+  "files": [
+    "dist"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./node": {
+      "types": "./dist/node.d.ts",
+      "import": "./dist/node.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/index.ts src/node.ts --format esm --sourcemap --clean && tsc --emitDeclarationOnly",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --config ../../vitest.config.ts --root ../.. packages/content/src",
+    "pack:check": "pnpm pack --dry-run"
+  },
+  "keywords": [
+    "gentorial",
+    "markdown",
+    "education"
+  ],
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@gentorial/core": "workspace:^"
+  }
+}

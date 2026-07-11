@@ -1,0 +1,56 @@
+:root {
+  --gentorial-accent: var(--vp-c-brand-1, #3451b2);
+  --gentorial-border: var(--vp-c-divider, #d8d8dc);
+  --gentorial-surface: var(--vp-c-bg-soft, #f6f6f7);
+}
+
+.gentorial-concept,
+.gentorial-generate {
+  margin: 1.25rem 0;
+  padding: 1rem 1.125rem;
+  border: 1px solid var(--gentorial-border);
+  border-radius: 0.75rem;
+}
+
+.gentorial-concept {
+  border-inline-start: 0.3rem solid var(--gentorial-accent);
+}
+
+.gentorial-generate {
+  background: var(--gentorial-surface);
+}
+
+.gentorial-generate button {
+  margin-top: 0.75rem;
+}
+
+.gentorial-generate__error,
+.gentorial-callout--danger {
+  color: var(--vp-c-danger-1, #b42318);
+}
+
+.gentorial-callout {
+  margin: 0.75rem 0;
+  padding: 0.75rem 1rem;
+  border-inline-start: 0.25rem solid var(--gentorial-accent);
+  background: var(--gentorial-surface);
+}
+
+.gentorial-comparison {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+@media (max-width: 640px) {
+  .gentorial-comparison {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gentorial-generate * {
+    scroll-behavior: auto;
+    transition-duration: 0s !important;
+  }
+}

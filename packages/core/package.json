@@ -1,0 +1,36 @@
+{
+  "name": "@gentorial/core",
+  "version": "0.0.0",
+  "description": "Framework-neutral course protocols and validation for Gentorial.",
+  "type": "module",
+  "sideEffects": false,
+  "files": [
+    "dist"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --sourcemap --clean && tsc --emitDeclarationOnly",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --config ../../vitest.config.ts --root ../.. packages/core/src",
+    "pack:check": "pnpm pack --dry-run"
+  },
+  "keywords": [
+    "gentorial",
+    "education",
+    "schema"
+  ],
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "zod": "^4.4.3"
+  }
+}

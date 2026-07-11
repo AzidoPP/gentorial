@@ -1,0 +1,48 @@
+{
+  "name": "@gentorial/theme-default",
+  "version": "0.0.0",
+  "description": "Default VitePress theme integration for Gentorial.",
+  "type": "module",
+  "sideEffects": [
+    "./style.css"
+  ],
+  "files": [
+    "dist",
+    "style.css"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./style.css": "./style.css"
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --sourcemap --clean --external vue --external vitepress --external vitepress/theme && tsc --emitDeclarationOnly",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --config ../../vitest.config.ts --root ../.. packages/theme-default/src",
+    "pack:check": "pnpm pack --dry-run"
+  },
+  "keywords": [
+    "gentorial",
+    "vitepress",
+    "theme"
+  ],
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@gentorial/runtime-vue": "workspace:^"
+  },
+  "peerDependencies": {
+    "vitepress": "^1.6.4",
+    "vue": "^3.5.39"
+  },
+  "devDependencies": {
+    "vitepress": "^1.6.4",
+    "vue": "^3.5.39"
+  }
+}

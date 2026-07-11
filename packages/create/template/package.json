@@ -1,0 +1,21 @@
+{
+  "name": "__PROJECT_NAME__",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vitepress dev docs",
+    "build": "vitepress build docs",
+    "preview": "vitepress preview docs"
+  },
+  "dependencies": {
+    "@gentorial/core": "^0.1.0",
+    "@gentorial/engine-vitepress": "^0.1.0",
+    "@gentorial/theme-default": "^0.1.0",
+    "vitepress": "^1.6.4",
+    "vue": "^3.5.39"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2"
+  }
+}

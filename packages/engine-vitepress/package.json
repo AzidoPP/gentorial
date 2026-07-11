@@ -1,0 +1,47 @@
+{
+  "name": "@gentorial/engine-vitepress",
+  "version": "0.0.0",
+  "description": "VitePress engine integration for Gentorial course directives.",
+  "type": "module",
+  "sideEffects": false,
+  "files": [
+    "dist"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --sourcemap --clean --external vitepress && tsc --emitDeclarationOnly",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --config ../../vitest.config.ts --root ../.. packages/engine-vitepress/src",
+    "pack:check": "pnpm pack --dry-run"
+  },
+  "keywords": [
+    "gentorial",
+    "vitepress",
+    "education"
+  ],
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@gentorial/content": "workspace:^",
+    "@gentorial/core": "workspace:^",
+    "markdown-it-container": "^4.0.0"
+  },
+  "peerDependencies": {
+    "vitepress": "^1.6.4"
+  },
+  "devDependencies": {
+    "@types/markdown-it": "^14.1.2",
+    "@types/markdown-it-container": "^4.0.0",
+    "markdown-it": "^14.3.0",
+    "vitepress": "^1.6.4"
+  }
+}
