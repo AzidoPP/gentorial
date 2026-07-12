@@ -18,7 +18,7 @@
   "scripts": {
     "build": "tsup src/index.ts --format esm --sourcemap --clean --external vue && tsc --emitDeclarationOnly",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --config ../../vitest.config.ts --root ../.. packages/runtime-vue/src",
+    "test": "vitest run --root ../.. --config vitest.config.ts packages/runtime-vue/src",
     "pack:check": "pnpm pack --dry-run"
   },
   "keywords": [

@@ -1,6 +1,9 @@
 export {
   GentorialConcept,
   GentorialGenerate,
+  GentorialGeneratedRegion,
+  GentorialGenerateTrigger,
+  GentorialPreferences,
   LessonBlockRenderer
 } from './components.js'
 export {
@@ -8,6 +11,10 @@ export {
   gentorialRuntimeKey
 } from './runtime.js'
 export type {
+  GentorialFollowUpStatus,
+  GentorialGenerationState,
+  GentorialGenerationStatus,
+  GentorialRegistration,
   GentorialRuntime,
   GentorialRuntimeOptions,
   RuntimeGenerationContext,

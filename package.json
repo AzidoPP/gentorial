@@ -10,6 +10,8 @@
   "scripts": {
     "build": "pnpm -r --if-present build",
     "dev": "pnpm --filter @gentorial/example-minimal dev",
+    "dev:website": "pnpm --filter @gentorial/website dev",
+    "build:website": "pnpm --filter @gentorial/website build",
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "vitest run",
     "test:watch": "vitest",

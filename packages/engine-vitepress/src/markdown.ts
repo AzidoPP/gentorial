@@ -15,7 +15,7 @@ function parseInfo(info: string): DirectiveInfo {
   const id = idMatch?.[1] ?? ''
   const attributes = new Map<string, string>()
   const rest = trimmed.slice(id.length)
-const pattern = /([A-Za-z][\w-]*)=(?:"([^"]*)"|'([^']*)'|([^\s]+))/g
+  const pattern = /([A-Za-z][\w-]*)=(?:"([^"]*)"|'([^']*)'|([^\s]+))/g
   let match: RegExpExecArray | null
 
   while ((match = pattern.exec(rest))) {
@@ -36,6 +36,12 @@ function expressionAttribute(md: MarkdownIt, value: unknown): string {
   return md.utils.escapeHtml(JSON.stringify(value))
 }
 
+function sourcePathFromEnvironment(environment: Record<string, unknown>): string {
+  return typeof environment.relativePath === 'string'
+    ? environment.relativePath.replaceAll('\\', '/')
+    : '<markdown>'
+}
+
 function openTokenInfo(tokens: Token[], index: number): DirectiveInfo {
   const token = tokens[index]
   return parseInfo((token?.info ?? '').trim().replace(/^(concept|generate)\s+/, ''))
@@ -44,7 +50,7 @@ function openTokenInfo(tokens: Token[], index: number): DirectiveInfo {
 export function installGentorialMarkdown(md: MarkdownIt): void {
   md.core.ruler.before('block', 'gentorial_parse_source', (state) => {
     const environment = state.env as Record<string, unknown>
-    const file = typeof environment.path === 'string' ? environment.path : '<markdown>'
+    const file = sourcePathFromEnvironment(environment)
     const parsed = parseLessonSource(state.src, { file })
     environment[parsedSourceKey] = parsed
 
@@ -52,6 +58,31 @@ export function installGentorialMarkdown(md: MarkdownIt): void {
     if (error) {
       const location = error.source ? `${error.source.file}:${error.source.line}` : file
       throw new Error(`${location} [${error.code}] ${error.message}`)
+    }
+  })
+
+  md.core.ruler.after('inline', 'gentorial_heading_triggers', (state) => {
+    const parsed = parsedSourceFromEnvironment(state.env)
+    if (!parsed) return
+
+    for (const generate of parsed.generates) {
+      const headingLine = generate.trigger.source.line - 1
+      const headingIndex = state.tokens.findIndex(
+        (token) => token.type === 'heading_open' && token.map?.[0] === headingLine
+      )
+      const inline = headingIndex >= 0 ? state.tokens[headingIndex + 1] : undefined
+      if (!inline || inline.type !== 'inline' || !inline.children) {
+        throw new Error(
+          `${generate.trigger.source.file}:${generate.trigger.source.line} ` +
+            `无法把生成触发器 ${generate.id} 绑定到标题`
+        )
+      }
+
+      const trigger = new state.Token('html_inline', '', 0)
+      trigger.content =
+        ` <GentorialGenerateTrigger generate-id="${md.utils.escapeHtml(generate.id)}"` +
+        ` label="${md.utils.escapeHtml(generate.scope.heading)}" />`
+      inline.children.push(trigger)
     }
   })
 
@@ -77,7 +108,7 @@ export function installGentorialMarkdown(md: MarkdownIt): void {
       return /^\s*generate\s+[^\s]+/.test(parameters)
     },
     render(tokens: Token[], index: number, _options: unknown, environment: unknown) {
-      if (tokens[index]?.nesting === -1) return '</GentorialGenerate>\n'
+      if (tokens[index]?.nesting === -1) return '</GentorialGeneratedRegion>\n'
 
       const info = openTokenInfo(tokens, index)
       const parsed = parsedSourceFromEnvironment(environment)
@@ -92,11 +123,11 @@ export function installGentorialMarkdown(md: MarkdownIt): void {
           type: 'callout',
           tone: 'info',
           title: '静态回退',
-          text: '生成内容尚未加载；上方概念锚点仍可正常阅读。'
+          text: '个性化讲解暂时不可用；上方作者原文仍可正常阅读。'
         }
       ]
       return [
-        `<GentorialGenerate :spec="${expressionAttribute(md, generate)}"`,
+        `<GentorialGeneratedRegion :spec="${expressionAttribute(md, generate)}"`,
         ` :concepts="${expressionAttribute(md, concepts)}"`,
         ` :fallback="${expressionAttribute(md, fallback)}">`
       ].join('')

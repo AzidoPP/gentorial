@@ -1,6 +1,9 @@
 import MarkdownIt from 'markdown-it'
-import { describe, expect, it } from 'vitest'
+import { createMarkdownRenderer, disposeMdItInstance } from 'vitepress'
+import { afterEach, describe, expect, it } from 'vitest'
 import { installGentorialMarkdown } from './index.js'
+
+afterEach(() => disposeMdItInstance())
 
 describe('installGentorialMarkdown', () => {
   it('renders concept anchors into static HTML', () => {
@@ -33,6 +36,8 @@ describe('installGentorialMarkdown', () => {
     installGentorialMarkdown(markdown)
 
     const html = markdown.render([
+      '## 连续范围',
+      '',
       '::: concept switch-discrete',
       '离散概念。',
       ':::',
@@ -42,8 +47,71 @@ describe('installGentorialMarkdown', () => {
       ':::'
     ].join('\n'))
 
-    expect(html).toContain('<GentorialGenerate')
+    expect(html).toContain('<GentorialGenerateTrigger generate-id="switch-range"')
+    expect(html).toContain('label="连续范围"')
+    expect(html).toContain('<GentorialGeneratedRegion')
     expect(html).toContain('&quot;id&quot;:&quot;switch-range&quot;')
     expect(html).toContain('静态回退')
+    expect(html.indexOf('GentorialGenerateTrigger')).toBeLessThan(html.indexOf('离散概念'))
+    expect(html.indexOf('离散概念')).toBeLessThan(html.indexOf('GentorialGeneratedRegion'))
+  })
+
+  it('keeps absolute build-machine paths out of client props', () => {
+    const markdown = new MarkdownIt()
+    installGentorialMarkdown(markdown)
+    const source = [
+      '## C 的历史',
+      '',
+      '1. ALGOL、CPL、BCPL',
+      '2. B',
+      '3. C',
+      '',
+      '::: generate c-history kind=explanation',
+      '沿演化链解释 C 的形成。',
+      ':::'
+    ].join('\n')
+
+    const html = markdown.render(source, {
+      path: 'D:/private/workspace/content/index.md',
+      relativePath: 'guide/index.md'
+    })
+
+    expect(html).toContain('guide/index.md')
+    expect(html).not.toContain('D:/private')
+  })
+
+  it('preserves VitePress header extraction after adding heading triggers', async () => {
+    disposeMdItInstance()
+    const markdown = await createMarkdownRenderer(process.cwd(), {
+      headers: true,
+      config: installGentorialMarkdown
+    })
+    const environment: Record<string, unknown> = {
+      path: 'D:/private/content/index.md',
+      relativePath: 'index.md'
+    }
+
+    markdown.render([
+      '# 页面',
+      '',
+      '## C 的历史',
+      '',
+      '1. ALGOL、CPL、BCPL',
+      '2. B',
+      '3. C',
+      '',
+      '::: generate c-history kind=explanation',
+      '沿演化链解释 C 的形成。',
+      ':::',
+      '',
+      '## 普通标题',
+      '',
+      '普通正文。'
+    ].join('\n'), environment)
+
+    expect(environment.headers).toEqual([
+      expect.objectContaining({ level: 2, title: 'C 的历史', slug: 'c-的历史' }),
+      expect.objectContaining({ level: 2, title: '普通标题', slug: '普通标题' })
+    ])
   })
 })

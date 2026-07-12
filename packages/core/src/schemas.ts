@@ -70,12 +70,52 @@ export const conceptSpecSchema = z
   })
   .strict()
 
+export const learnerProfileSchema = z
+  .object({
+    locale: nonBlankString.optional(),
+    background: nonBlankString.optional(),
+    goal: nonBlankString.optional(),
+    detail: z.enum(['concise', 'balanced', 'deep']).optional(),
+    tone: z.enum(['neutral', 'conversational', 'formal']).optional(),
+    narrative: z.enum(['direct', 'story', 'timeline', 'comparison']).optional(),
+    examplePreferences: z.array(nonBlankString).min(1).optional()
+  })
+  .strict()
+
+export const sectionScopeSchema = z
+  .object({
+    type: z.literal('section'),
+    id: idSchema,
+    heading: nonBlankString,
+    level: z.number().int().min(1).max(6),
+    markdown: nonBlankString,
+    source: sourceLocationSchema
+  })
+  .strict()
+
+export const generateTriggerSchema = z
+  .object({
+    type: z.literal('heading'),
+    source: sourceLocationSchema
+  })
+  .strict()
+
+export const generateOutputSchema = z
+  .object({
+    placement: z.literal('after-source'),
+    mode: z.literal('replace')
+  })
+  .strict()
+
 export const generateSpecSchema = z
   .object({
     id: idSchema,
     kind: z.enum(['explanation', 'example', 'comparison', 'exercise', 'feedback']),
     prompt: nonBlankString,
-    concepts: z.array(idSchema).min(1),
+    concepts: z.array(idSchema),
+    scope: sectionScopeSchema,
+    trigger: generateTriggerSchema,
+    output: generateOutputSchema,
     source: sourceLocationSchema
   })
   .strict()
@@ -153,11 +193,27 @@ export const generatedLessonSchema = z
     grounding: z
       .object({
         conceptIds: z.array(idSchema),
+        sourceIds: z.array(idSchema),
         notes: z.array(nonBlankString).optional()
       })
       .strict()
   })
   .strict()
+
+export const lessonConversationTurnSchema = z.discriminatedUnion('role', [
+  z
+    .object({
+      role: z.literal('user'),
+      content: nonBlankString
+    })
+    .strict(),
+  z
+    .object({
+      role: z.literal('assistant'),
+      lesson: generatedLessonSchema
+    })
+    .strict()
+])
 
 const manifestCourseSchema = courseDefinitionSchema
   .omit({ plugins: true })

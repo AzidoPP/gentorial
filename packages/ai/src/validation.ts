@@ -36,6 +36,9 @@ export function validateGeneratedLesson(
   const requiredIds = new Set(input.generate.concepts)
   const availableIds = new Set(input.concepts.map((concept) => concept.id))
   const groundedIds = new Set(parsed.data.grounding.conceptIds)
+  const requiredSourceId = input.generate.scope.id
+  const availableSourceIds = new Set([requiredSourceId])
+  const groundedSourceIds = new Set(parsed.data.grounding.sourceIds)
 
   for (const id of requiredIds) {
     if (!groundedIds.has(id)) {
@@ -53,6 +56,24 @@ export function validateGeneratedLesson(
         severity: 'error',
         code: 'AI_UNKNOWN_GROUNDING',
         message: `生成结果引用了课程输入中不存在的概念 ${id}`
+      })
+    }
+  }
+
+  if (!groundedSourceIds.has(requiredSourceId)) {
+    diagnostics.push({
+      severity: 'error',
+      code: 'AI_MISSING_SOURCE_GROUNDING',
+      message: `生成结果没有声明当前章节来源 ${requiredSourceId}`
+    })
+  }
+
+  for (const id of groundedSourceIds) {
+    if (!availableSourceIds.has(id)) {
+      diagnostics.push({
+        severity: 'error',
+        code: 'AI_UNKNOWN_SOURCE_GROUNDING',
+        message: `生成结果引用了课程输入中不存在的来源 ${id}`
       })
     }
   }

@@ -3,22 +3,19 @@ import type {
   CourseDefinition,
   GeneratedLesson,
   GenerateSpec,
+  LearnerProfile,
+  LessonConversationTurn,
   ValidationDiagnostic
 } from '@gentorial/core'
 
-export type LearnerPreferences = {
-  locale?: string
-  background?: string
-  goal?: string
-  style?: string
-  examplePreferences?: string[]
-}
+export type LearnerPreferences = LearnerProfile
 
 export type GenerationInput = {
   course: CourseDefinition
   generate: GenerateSpec
   concepts: ConceptSpec[]
-  learner?: LearnerPreferences
+  learner?: LearnerProfile
+  conversation?: LessonConversationTurn[]
 }
 
 export type CompiledPrompt = {

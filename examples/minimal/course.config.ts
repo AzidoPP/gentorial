@@ -3,7 +3,7 @@ import { defineCourse } from '@gentorial/core'
 export default defineCourse({
   schemaVersion: '1',
   id: 'gentorial-minimal',
-  title: 'Gentorial 最小示例',
+  title: '在开始编程之前',
   description: '用 switch 章节验证概念锚点、生成区块、校验与静态回退。',
   lang: 'zh-CN',
   contentDir: 'content',

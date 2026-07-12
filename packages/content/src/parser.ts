@@ -31,9 +31,24 @@ type ParsedMetadata = {
   diagnostics: ValidationDiagnostic[]
 }
 
+type HeadingLevel = 1 | 2 | 3 | 4 | 5 | 6
+
+type MarkdownHeading = {
+  heading: string
+  level: HeadingLevel
+  lineIndex: number
+  source: SourceLocation
+}
+
+type MarkdownFence = {
+  marker: '`' | '~'
+  length: number
+}
+
 const directiveStartPattern = /^\s*:::\s+(concept|generate)\s+([^\s]+)(?:\s+(.*?))?\s*$/
 const directiveEndPattern = /^\s*:::\s*$/
-const fencePattern = /^\s*(```+|~~~+)/
+const fencePattern = /^( {0,3})(`{3,}|~{3,})(.*)$/
+const atxHeadingPattern = /^( {0,3})(#{1,6})(?:[\t ]+(.*?)[\t ]*|[\t ]*)$/
 const generateKinds = new Set([
   'explanation',
   'example',
@@ -146,6 +161,86 @@ function startFromLine(line: string, lineNumber: number, file: string): Directiv
   }
 }
 
+function headingFromLine(
+  line: string,
+  lineIndex: number,
+  file: string
+): MarkdownHeading | undefined {
+  const match = atxHeadingPattern.exec(line)
+  if (!match) return undefined
+
+  const indentation = match[1] ?? ''
+  const markers = match[2] ?? ''
+  const rawHeading = match[3] ?? ''
+  const heading = rawHeading.replace(/[\t ]+#+[\t ]*$/, '').trim()
+
+  return {
+    heading,
+    level: markers.length as HeadingLevel,
+    lineIndex,
+    source: {
+      file,
+      line: lineIndex + 1,
+      column: indentation.length + 1
+    }
+  }
+}
+
+function fenceFromLine(line: string): MarkdownFence | undefined {
+  const match = fencePattern.exec(line)
+  const markers = match?.[2]
+  if (!markers) return undefined
+
+  const marker = markers[0]
+  if (marker !== '`' && marker !== '~') return undefined
+  if (marker === '`' && (match?.[3] ?? '').includes('`')) return undefined
+
+  return { marker, length: markers.length }
+}
+
+function closesFence(line: string, fence: MarkdownFence): boolean {
+  const match = fencePattern.exec(line)
+  const markers = match?.[2]
+  if (!markers || markers[0] !== fence.marker || markers.length < fence.length) return false
+  return /^[\t ]*$/.test(match?.[3] ?? '')
+}
+
+function sectionMarkdown(lines: string[], startIndex: number, endIndex: number): string {
+  const authorLines: string[] = []
+  let fence: MarkdownFence | undefined
+  let conceptContainer = false
+
+  for (let index = startIndex; index < endIndex; index += 1) {
+    const line = lines[index] ?? ''
+    if (fence) {
+      authorLines.push(line)
+      if (closesFence(line, fence)) fence = undefined
+      continue
+    }
+
+    const openingFence = fenceFromLine(line)
+    if (openingFence) {
+      fence = openingFence
+      authorLines.push(line)
+      continue
+    }
+
+    const directiveMatch = directiveStartPattern.exec(line)
+    if (!conceptContainer && directiveMatch?.[1] === 'concept') {
+      conceptContainer = true
+      continue
+    }
+    if (conceptContainer && directiveEndPattern.test(line)) {
+      conceptContainer = false
+      continue
+    }
+
+    authorLines.push(line)
+  }
+
+  return authorLines.join('\n').trim()
+}
+
 function validateMetadataKeys(
   start: DirectiveStart,
   metadata: ParsedMetadata,
@@ -174,21 +269,53 @@ export function parseLessonSource(
   const concepts: ConceptSpec[] = []
   const generates: GenerateSpec[] = []
   const diagnostics: ValidationDiagnostic[] = []
-  let fence: string | undefined
+  const sectionMarkdownByHeadingLine = new Map<number, string>()
+  const sourceAfterGenerateReported = new Set<number>()
+  let fence: MarkdownFence | undefined
+  let heading: MarkdownHeading | undefined
+  let generatedHeadingLine: number | undefined
+
+  function reportSourceAfterGenerate(lineIndex: number): void {
+    if (!heading || generatedHeadingLine !== heading.lineIndex) return
+    if (sourceAfterGenerateReported.has(heading.lineIndex)) return
+    sourceAfterGenerateReported.add(heading.lineIndex)
+    diagnostics.push(
+      diagnostic(
+        'error',
+        'CONTENT_SOURCE_AFTER_GENERATE',
+        '章节的作者原文必须写在 generate 指令之前，才能保证生成结果位于原文之后',
+        { file, line: lineIndex + 1, column: 1 }
+      )
+    )
+  }
 
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index] ?? ''
-    const fenceMatch = fencePattern.exec(line)
-    if (fenceMatch) {
-      const marker = fenceMatch[1]?.[0]
-      if (!fence) fence = marker
-      else if (marker === fence) fence = undefined
+    if (fence) {
+      if (closesFence(line, fence)) fence = undefined
       continue
     }
-    if (fence) continue
+
+    const openingFence = fenceFromLine(line)
+    if (openingFence) {
+      reportSourceAfterGenerate(index)
+      fence = openingFence
+      continue
+    }
+
+    const nextHeading = headingFromLine(line, index, file)
+    if (nextHeading) {
+      heading = nextHeading
+      generatedHeadingLine = undefined
+      continue
+    }
 
     const start = startFromLine(line, index + 1, file)
-    if (!start) continue
+    if (!start) {
+      if (line.trim()) reportSourceAfterGenerate(index)
+      continue
+    }
+    if (start.kind !== 'generate') reportSourceAfterGenerate(index)
 
     const bodyLines: string[] = []
     let closingIndex = -1
@@ -252,6 +379,8 @@ export function parseLessonSource(
       continue
     }
 
+    generatedHeadingLine = heading?.lineIndex
+
     validateMetadataKeys(start, metadata, new Set(['kind', 'concepts']))
     diagnostics.push(...metadata.diagnostics)
     const kind = metadata.values.get('kind')
@@ -259,6 +388,36 @@ export function parseLessonSource(
       .split(',')
       .map((value) => value.trim())
       .filter(Boolean)
+
+    let markdown: string | undefined
+    if (!heading) {
+      diagnostics.push(
+        diagnostic(
+          'error',
+          'CONTENT_GENERATE_WITHOUT_HEADING',
+          `generate 指令 ${start.id} 前没有可绑定的 Markdown 标题`,
+          start.source
+        )
+      )
+    } else {
+      if (!sectionMarkdownByHeadingLine.has(heading.lineIndex)) {
+        sectionMarkdownByHeadingLine.set(
+          heading.lineIndex,
+          sectionMarkdown(lines, heading.lineIndex + 1, start.source.line - 1)
+        )
+      }
+      markdown = sectionMarkdownByHeadingLine.get(heading.lineIndex)
+      if (!markdown) {
+        diagnostics.push(
+          diagnostic(
+            'error',
+            'CONTENT_EMPTY_GENERATION_SCOPE',
+            `generate 指令 ${start.id} 所绑定的章节范围为空`,
+            start.source
+          )
+        )
+      }
+    }
 
     if (!kind || !generateKinds.has(kind)) {
       diagnostics.push(
@@ -272,12 +431,30 @@ export function parseLessonSource(
       continue
     }
 
+    if (!heading || !markdown) continue
+
     const result = generateSpecSchema.safeParse({
       id: start.id,
       kind,
       prompt: body,
       concepts: conceptIds,
-      source: start.source
+      source: start.source,
+      scope: {
+        type: 'section',
+        id: `${start.id}-scope`,
+        heading: heading.heading,
+        level: heading.level,
+        markdown,
+        source: heading.source
+      },
+      trigger: {
+        type: 'heading',
+        source: heading.source
+      },
+      output: {
+        placement: 'after-source',
+        mode: 'replace'
+      }
     })
     if (result.success) generates.push(result.data)
     else {

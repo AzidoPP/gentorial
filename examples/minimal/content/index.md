@@ -1,22 +1,38 @@
 ---
-title: switch 的适用边界
+title: 在开始编程之前
 ---
 
-# `switch` 的适用边界
+# 在开始编程之前
 
-页面先呈现作者确认的教学事实，再提供可独立请求的生成示例。即使 JavaScript 或 AI 不可用，下面的概念锚点仍然存在于静态 HTML 中。
+<GentorialPreferences />
 
-::: concept switch-discrete title="概念锚点：离散分支"
+## C 的历史
+
+1. ALGOL、CPL、BCPL
+2. B
+3. C
+
+::: generate c-history kind=explanation
+沿这条语言演化链解释 C 的形成过程，以及各阶段留下的关键设计影响；不要扩展成无关的通用计算机史。
+:::
+
+## `switch` 的适用边界
+
+::: concept switch-discrete
 `switch` 根据整数类型表达式经整数提升后的离散结果选择分支。
 :::
 
-## 连续范围
+### 连续范围
+
+成绩区间一类问题描述的是连续范围，而 `switch` 面向的是离散分支值。
 
 ::: generate switch-range kind=example concepts=switch-discrete
 `switch` 不适合直接判断连续范围（比如成绩区间）。
 :::
 
-## 相似分支
+### 相似分支
+
+如果多个选项只对应不同数据，而执行步骤保持相同，重复分支可能掩盖真正的数据结构。
 
 ::: generate switch-table kind=example concepts=switch-discrete
 多个选项分支基本相同，可以使用表驱动。

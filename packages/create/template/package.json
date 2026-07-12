@@ -9,8 +9,10 @@
     "preview": "vitepress preview docs"
   },
   "dependencies": {
+    "@gentorial/ai": "^0.1.0",
     "@gentorial/core": "^0.1.0",
     "@gentorial/engine-vitepress": "^0.1.0",
+    "@gentorial/runtime-vue": "^0.1.0",
     "@gentorial/theme-default": "^0.1.0",
     "vitepress": "^1.6.4",
     "vue": "^3.5.39"

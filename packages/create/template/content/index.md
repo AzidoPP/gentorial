@@ -4,8 +4,12 @@ title: __COURSE_TITLE__
 
 # __COURSE_TITLE__
 
+<GentorialPreferences />
+
+## 第一个主题
+
 ::: concept first-concept title="第一个概念"
-这里写作者确认过、不能被生成内容替代的教学事实。
+这里写作者确认过、不能被个性化讲解替代的教学事实。
 :::
 
 ::: generate first-example kind=example concepts=first-concept

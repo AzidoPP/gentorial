@@ -7,6 +7,7 @@ export {
   GenerationValidationError,
   validateGeneratedLesson
 } from './validation.js'
+export type { LearnerProfile, LessonConversationTurn } from '@gentorial/core'
 export type {
   AITransport,
   CompiledPrompt,

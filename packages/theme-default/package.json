@@ -22,7 +22,7 @@
   "scripts": {
     "build": "tsup src/index.ts --format esm --sourcemap --clean --external vue --external vitepress --external vitepress/theme && tsc --emitDeclarationOnly",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --config ../../vitest.config.ts --root ../.. packages/theme-default/src",
+    "test": "vitest run --root ../.. --config vitest.config.ts packages/theme-default/src",
     "pack:check": "pnpm pack --dry-run"
   },
   "keywords": [

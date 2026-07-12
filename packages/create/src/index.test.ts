@@ -25,9 +25,16 @@ describe('createGentorialProject', () => {
     })
     const packageSource = await readFile(resolve(result.targetDir, 'package.json'), 'utf8')
     const courseSource = await readFile(resolve(result.targetDir, 'course.config.ts'), 'utf8')
+    const themeSource = await readFile(
+      resolve(result.targetDir, 'docs/.vitepress/theme/index.ts'),
+      'utf8'
+    )
 
     expect(JSON.parse(packageSource)).toMatchObject({ name: 'my-course', private: true })
     expect(courseSource).toContain("title: '我的课程'")
+    expect(themeSource).toContain('createMockGenerator')
+    expect(themeSource).toContain('createGentorialRuntime')
+    expect(themeSource).toContain('request.conversation')
   })
 
   it('refuses to overwrite a non-empty directory', async () => {

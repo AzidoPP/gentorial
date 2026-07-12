@@ -20,7 +20,7 @@ describe('compileCourseDirectory', () => {
     await mkdir(resolve(rootDir, 'content'))
     await writeFile(
       resolve(rootDir, 'content/index.md'),
-      '::: generate example kind=example concepts=missing\n生成示例。\n:::',
+      '# 示例\n\n作者限定的内容范围。\n\n::: generate example kind=example concepts=missing\n生成示例。\n:::',
       'utf8'
     )
 
@@ -42,5 +42,15 @@ describe('compileCourseDirectory', () => {
     expect(result.diagnostics).toContainEqual(
       expect.objectContaining({ code: 'CONTENT_UNKNOWN_CONCEPT', severity: 'error' })
     )
+    expect(result.manifest.generates[0]).toMatchObject({
+      scope: {
+        type: 'section',
+        heading: '示例',
+        markdown: '作者限定的内容范围。',
+        source: { file: 'content/index.md', line: 1 }
+      },
+      trigger: { type: 'heading', source: { line: 1 } },
+      output: { placement: 'after-source', mode: 'replace' }
+    })
   })
 })

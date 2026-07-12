@@ -14,11 +14,16 @@ export {
   courseDefinitionSchema,
   courseManifestSchema,
   generatedLessonSchema,
+  generateOutputSchema,
   generateSpecSchema,
+  generateTriggerSchema,
   headingBlockSchema,
+  learnerProfileSchema,
+  lessonConversationTurnSchema,
   lessonBlockSchema,
   listBlockSchema,
   paragraphBlockSchema,
+  sectionScopeSchema,
   sourceLocationSchema,
   validationDiagnosticSchema
 } from './schemas.js'
@@ -30,11 +35,16 @@ export type {
   CourseDefinition,
   CourseManifest,
   GeneratedLesson,
+  GenerateOutput,
   GenerateSpec,
+  GenerateTrigger,
   HeadingBlock,
+  LearnerProfile,
+  LessonConversationTurn,
   LessonBlock,
   ListBlock,
   ParagraphBlock,
+  SectionScope,
   SourceLocation,
   ValidationDiagnostic
 } from './types.js'
