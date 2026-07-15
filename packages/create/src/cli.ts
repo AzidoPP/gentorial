@@ -26,6 +26,7 @@ type CliOptions = {
   title?: string
   lang?: string
   packageManager?: PackageManager
+  allowUnsafeHtml?: boolean
   install?: boolean
   git?: boolean
   yes: boolean
@@ -42,6 +43,8 @@ function help(): string {
     '  --title <title>                 Course title',
     '  --lang <locale>                 Default locale (default: zh-CN)',
     '  --package-manager <name>        pnpm, npm, yarn, or bun',
+    '  --allow-unsafe-html             Render raw HTML in AI-generated content',
+    '  --no-unsafe-html                Keep raw HTML inert (default)',
     '  --install / --no-install        Install dependencies or skip installation',
     '  --git / --no-git                Initialize Git or skip it',
     '  -y, --yes                       Accept defaults without prompting',
@@ -64,6 +67,8 @@ function parseArguments(arguments_: string[]): CliOptions {
     else if (argument === '--yes' || argument === '-y') options.yes = true
     else if (argument === '--install') options.install = true
     else if (argument === '--no-install') options.install = false
+    else if (argument === '--allow-unsafe-html') options.allowUnsafeHtml = true
+    else if (argument === '--no-unsafe-html') options.allowUnsafeHtml = false
     else if (argument === '--git') options.git = true
     else if (argument === '--no-git') options.git = false
     else if (argument === '--title') options.title = optionValue(arguments_, index++, argument)
@@ -172,6 +177,15 @@ export async function run(arguments_: string[] = process.argv.slice(2)): Promise
       }))
     : 'zh-CN')
 
+  const allowUnsafeHtml = options.allowUnsafeHtml ?? (interactive
+    ? answer(await confirm({
+        message: lang === 'zh-CN'
+          ? '是否渲染 AI 生成内容中的原始 HTML？开启后，它将获得当前站点的同源权限。'
+          : 'Render raw HTML in AI-generated content? It will have this site\'s origin privileges.',
+        initialValue: false
+      }))
+    : false)
+
   const detectedPackageManager = options.packageManager ?? detectPackageManager()
   const packageManager = detectedPackageManager ?? (interactive
     ? answer(await select<PackageManager>({
@@ -193,7 +207,13 @@ export async function run(arguments_: string[] = process.argv.slice(2)): Promise
     ? answer(await confirm({ message: 'Initialize Git?', initialValue: true }))
     : options.yes)
 
-  const result = await createGentorialProject({ targetDir, title, lang, packageManager })
+  const result = await createGentorialProject({
+    targetDir,
+    title,
+    lang,
+    packageManager,
+    allowUnsafeHtml
+  })
 
   if (shouldInstall) {
     const [command, commandArguments] = packageManagerInstallCommand(packageManager)

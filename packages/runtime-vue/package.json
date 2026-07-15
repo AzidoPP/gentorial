@@ -1,6 +1,6 @@
 {
   "name": "@gentorial/runtime-vue",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Vue runtime and safe lesson-block rendering for Gentorial.",
   "type": "module",
   "sideEffects": false,
@@ -32,6 +32,7 @@
   },
   "dependencies": {
     "@gentorial/core": "workspace:^",
+    "@lucide/vue": "^1.24.0",
     "markdown-it": "^14.3.0"
   },
   "peerDependencies": {

@@ -7,20 +7,23 @@ import type {
   TransportContext
 } from './types.js'
 
-export type BrowserByokProvider = 'openai' | 'anthropic' | 'google' | 'custom'
+export type Provider = 'openai' | 'anthropic' | 'google' | 'custom'
+export type BrowserByokProvider = Provider
 
-export type BrowserByokCredentials = {
-  provider: BrowserByokProvider
+export type ProviderCredentials = {
+  provider: Provider
   apiKey: string
   model?: string
   baseUrl?: string
   /** @deprecated Use baseUrl. Full provider endpoints remain accepted for compatibility. */
   endpoint?: string
 }
+export type BrowserByokCredentials = ProviderCredentials
 
-export type BrowserByokGeneratorOptions = {
+export type ProviderGeneratorOptions = {
   fetch?: typeof globalThis.fetch
 }
+export type BrowserByokGeneratorOptions = ProviderGeneratorOptions
 
 type BrowserRequest = {
   url: string
@@ -77,7 +80,10 @@ function responseText(value: unknown, provider: BrowserByokProvider): string {
   throw new Error(`${provider} 响应中没有可读取的结构化文本`)
 }
 
-function createAdapter(credentials: BrowserByokCredentials): ProviderAdapter<BrowserRequest, unknown> {
+function createAdapter(
+  credentials: ProviderCredentials,
+  browserDirect: boolean
+): ProviderAdapter<BrowserRequest, unknown> {
   const provider = credentials.provider
   const apiKey = credentials.apiKey.trim()
   if (!apiKey) throw new Error('API key 不能为空')
@@ -96,7 +102,7 @@ function createAdapter(credentials: BrowserByokCredentials): ProviderAdapter<Bro
             'content-type': 'application/json',
             'x-api-key': apiKey,
             'anthropic-version': '2023-06-01',
-            'anthropic-dangerous-direct-browser-access': 'true'
+            ...(browserDirect ? { 'anthropic-dangerous-direct-browser-access': 'true' } : {})
           },
           body: {
             model,
@@ -297,13 +303,14 @@ function streamingPrompt(input: Parameters<Generator['generate']>[0]): CompiledP
   }
 }
 
-export function createBrowserByokGenerator(
-  credentials: BrowserByokCredentials,
-  options: BrowserByokGeneratorOptions = {}
+function createConfiguredProviderGenerator(
+  credentials: ProviderCredentials,
+  options: ProviderGeneratorOptions,
+  browserDirect: boolean
 ): Generator {
   const fetchImplementation = options.fetch ?? globalThis.fetch
   if (!fetchImplementation) throw new Error('当前环境不支持 fetch')
-  const adapter = createAdapter(credentials)
+  const adapter = createAdapter(credentials, browserDirect)
   const generator = createGenerationPipeline({
     adapter,
     transport: createBrowserTransport(fetchImplementation)
@@ -328,4 +335,20 @@ export function createBrowserByokGenerator(
       }
     }
   }
+}
+
+/** Creates a provider generator intended for server-managed credentials. */
+export function createProviderGenerator(
+  credentials: ProviderCredentials,
+  options: ProviderGeneratorOptions = {}
+): Generator {
+  return createConfiguredProviderGenerator(credentials, options, false)
+}
+
+/** Creates a provider generator for an explicitly learner-controlled browser BYOK session. */
+export function createBrowserByokGenerator(
+  credentials: BrowserByokCredentials,
+  options: BrowserByokGeneratorOptions = {}
+): Generator {
+  return createConfiguredProviderGenerator(credentials, options, true)
 }

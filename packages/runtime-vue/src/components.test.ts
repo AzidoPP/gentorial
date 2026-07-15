@@ -1,13 +1,5 @@
-import type {
-  ConceptSpec,
-  GeneratedLesson,
-  GenerateSpec
-} from '@gentorial/core'
-import {
-  createApp,
-  type Component,
-  type VNode
-} from 'vue'
+import type { ConceptSpec, GeneratedLesson, GenerateSpec } from '@gentorial/core'
+import { createApp, type Component, type VNode } from 'vue'
 import { describe, expect, it, vi } from 'vitest'
 import {
   createGentorialRuntime,
@@ -111,9 +103,7 @@ function visibleVNodeText(vnode: VNode | null): string {
   return vnode.children
     .map((child) => {
       if (typeof child === 'string') return child
-      return typeof child === 'object' && child !== null
-        ? visibleVNodeText(child as VNode)
-        : ''
+      return typeof child === 'object' && child !== null ? visibleVNodeText(child as VNode) : ''
     })
     .join('')
 }
@@ -123,19 +113,22 @@ describe('GentorialPreferences', () => {
     const runtime = createGentorialRuntime({ generate: vi.fn() })
     const render = setupRender(GentorialPreferences, {}, runtime)
     const details = render()
-    const fields = vnodeChildren(vnodeChildren(details)[1]!)
-    const selects = fields.map((field) => vnodeChildren(field)[1]!)
+    const deep = findVNode(
+      details,
+      (candidate) => candidate.props?.['data-preference-value'] === 'deep'
+    )!
+    const conversational = findVNode(
+      details,
+      (candidate) => candidate.props?.['data-preference-value'] === 'conversational'
+    )!
+    const timeline = findVNode(
+      details,
+      (candidate) => candidate.props?.['data-preference-value'] === 'timeline'
+    )!
 
-    expect(selects).toHaveLength(3)
-    expect(selects.map((select) => select.props?.value)).toEqual([
-      'balanced',
-      'neutral',
-      'direct'
-    ])
-
-    invoke(selects[0]!, 'onChange', { currentTarget: { value: 'deep' } })
-    invoke(selects[1]!, 'onChange', { currentTarget: { value: 'conversational' } })
-    invoke(selects[2]!, 'onChange', { currentTarget: { value: 'timeline' } })
+    invoke(deep, 'onClick')
+    invoke(conversational, 'onClick')
+    invoke(timeline, 'onClick')
 
     expect(runtime.learnerProfile.value).toMatchObject({
       detail: 'deep',
@@ -147,7 +140,10 @@ describe('GentorialPreferences', () => {
   it('stores the selected BYOK model and Base URL in the runtime session', () => {
     const runtime = createGentorialRuntime({ generate: vi.fn() })
     const render = setupRender(GentorialPreferences, {}, runtime)
-    const continueButton = findVNode(render(), (candidate) => candidate.children === '继续 →')!
+    const continueButton = findVNode(
+      render(),
+      (candidate) => candidate.props?.class === 'gentorial-preferences__primary'
+    )!
 
     invoke(continueButton, 'onClick')
     let byok = render()
@@ -157,14 +153,19 @@ describe('GentorialPreferences', () => {
 
     byok = render()
     fields = vnodeChildren(vnodeChildren(byok)[1]!)
-    const apiKey = vnodeChildren(fields[1]!)[1]!
-    const model = vnodeChildren(fields[2]!)[1]!
+    const model = vnodeChildren(fields[1]!)[1]!
+    const apiKey = vnodeChildren(fields[2]!)[1]!
     const baseUrl = vnodeChildren(fields[3]!)[1]!
     invoke(apiKey, 'onInput', { currentTarget: { value: 'secret' } })
     invoke(model, 'onInput', { currentTarget: { value: 'local-model' } })
-    invoke(baseUrl, 'onInput', { currentTarget: { value: 'https://localhost:11434/v1' } })
+    invoke(baseUrl, 'onInput', {
+      currentTarget: { value: 'https://localhost:11434/v1' }
+    })
 
-    const save = findVNode(render(), (candidate) => candidate.children === '保存并继续')!
+    const save = findVNode(
+      render(),
+      (candidate) => candidate.props?.class === 'gentorial-preferences__primary'
+    )!
     expect(save.props?.disabled).toBe(false)
     invoke(save, 'onClick')
 
@@ -207,9 +208,9 @@ describe('GentorialGenerateTrigger', () => {
     )!
     expect(requestSignal?.aborted).toBe(false)
     expect(successButton.props?.['aria-label']).toBe('显示结果操作：C 的历史')
-    expect(findVNode(successRoot, (candidate) =>
-      hasClass(candidate, 'gentorial-generation-toolbar')
-    )).toBeDefined()
+    expect(
+      findVNode(successRoot, (candidate) => hasClass(candidate, 'gentorial-generation-toolbar'))
+    ).toBeDefined()
   })
 
   it('does not restart or cancel the active request when clicked while loading', () => {
@@ -226,8 +227,14 @@ describe('GentorialGenerateTrigger', () => {
       runtime
     )
 
-    invoke(findVNode(render(), (candidate) => hasClass(candidate, 'gentorial-generate-trigger'))!, 'onClick')
-    invoke(findVNode(render(), (candidate) => hasClass(candidate, 'gentorial-generate-trigger'))!, 'onClick')
+    invoke(
+      findVNode(render(), (candidate) => hasClass(candidate, 'gentorial-generate-trigger'))!,
+      'onClick'
+    )
+    invoke(
+      findVNode(render(), (candidate) => hasClass(candidate, 'gentorial-generate-trigger'))!,
+      'onClick'
+    )
 
     expect(requestSignal?.aborted).toBe(false)
     expect(runtime.getState(spec.id).status).toBe('loading')
@@ -264,12 +271,17 @@ describe('GentorialGeneratedRegion', () => {
     expect(input).toBeDefined()
     expect(input?.props?.placeholder).toBe('继续追问…')
     expect(label?.props?.for).toBe(input?.props?.id)
-    expect(label?.props?.style).toMatchObject({ position: 'absolute', width: '1px' })
+    expect(label?.props?.style).toMatchObject({
+      position: 'absolute',
+      width: '1px'
+    })
     expect(initialSubmit?.children).toBe('发送')
     expect(initialSubmit?.props?.disabled).toBe(true)
     expect(findVNode(region, (candidate) => candidate.type === 'form')).toBeUndefined()
 
-    invoke(input!, 'onInput', { currentTarget: { value: '为什么 B 之后会出现 C？' } })
+    invoke(input!, 'onInput', {
+      currentTarget: { value: '为什么 B 之后会出现 C？' }
+    })
     region = render()
     const submit = findVNode(region, (candidate) => candidate.type === 'button')
     expect(submit?.props?.disabled).toBe(false)
@@ -286,7 +298,9 @@ describe('GentorialGeneratedRegion', () => {
 
     region = render()
     expect(findVNode(region, (candidate) => candidate.type === 'input')?.props?.value).toBe('')
-    expect(findVNode(region, (candidate) => candidate.type === 'button')?.props?.disabled).toBe(true)
+    expect(findVNode(region, (candidate) => candidate.type === 'button')?.props?.disabled).toBe(
+      true
+    )
     expect(visibleVNodeText(region)).not.toContain('为什么 B 之后会出现 C？')
     expect(visibleVNodeText(region)).not.toContain('生成')
 
@@ -327,29 +341,41 @@ describe('GentorialGeneratedRegion', () => {
 
     await runtime.run(spec.id)
     let region = render()
-    invoke(findVNode(region, (candidate) => candidate.type === 'input')!, 'onInput', {
-      currentTarget: { value: '继续说明。' }
-    })
-    invoke(findVNode(region, (candidate) => candidate.type === 'input')!, 'onKeydown', {
-      key: 'Enter',
-      preventDefault: vi.fn(),
-      stopPropagation: vi.fn()
-    })
+    invoke(
+      findVNode(region, (candidate) => candidate.type === 'input')!,
+      'onInput',
+      {
+        currentTarget: { value: '继续说明。' }
+      }
+    )
+    invoke(
+      findVNode(region, (candidate) => candidate.type === 'input')!,
+      'onKeydown',
+      {
+        key: 'Enter',
+        preventDefault: vi.fn(),
+        stopPropagation: vi.fn()
+      }
+    )
 
     region = render()
     expect(findVNode(region, (candidate) => candidate.type === 'input')).toBeDefined()
-    invoke(findVNode(region, (candidate) => candidate.type === 'input')!, 'onKeydown', {
-      key: 'Escape',
-      preventDefault: vi.fn(),
-      stopPropagation: vi.fn()
-    })
+    invoke(
+      findVNode(region, (candidate) => candidate.type === 'input')!,
+      'onKeydown',
+      {
+        key: 'Escape',
+        preventDefault: vi.fn(),
+        stopPropagation: vi.fn()
+      }
+    )
 
     expect(signal?.aborted).toBe(true)
     expect(runtime.getState(spec.id).followUpStatus).toBe('idle')
     expect(findVNode(render(), (candidate) => candidate.type === 'input')?.props?.value).toBe('')
   })
 
-  it('keeps follow-up failures invisible and marks the next input invalid', async () => {
+  it('shows follow-up failures, marks the region as failed, and keeps the input retryable', async () => {
     const generate = vi
       .fn()
       .mockResolvedValueOnce(lesson())
@@ -375,16 +401,19 @@ describe('GentorialGeneratedRegion', () => {
     })
 
     region = render()
-    expect(visibleVNodeText(region)).toBe('发送')
-    expect(findVNode(region, (candidate) =>
-      hasClass(candidate, 'gentorial-generated-region__follow-up-semantic-status')
-    )?.props?.['aria-live']).toBe('assertive')
+    expect(hasClass(region, 'gentorial-generated-region--error')).toBe(true)
+    expect(visibleVNodeText(region)).toBe('provider failed visibly发送')
+    const errorMessage = findVNode(region, (candidate) =>
+      hasClass(candidate, 'gentorial-generated-region__follow-up-error')
+    )
+    expect(errorMessage?.props?.role).toBe('alert')
+    expect(errorMessage?.props?.['aria-live']).toBe('assertive')
 
     const retryInput = findVNode(render(), (candidate) => candidate.type === 'input')
     expect(retryInput?.props?.['aria-invalid']).toBe('true')
   })
 
-  it('renders nothing for initial loading and failure, even when fallback exists', async () => {
+  it('renders an accessible error region after an initial failure', async () => {
     let reject!: (reason?: unknown) => void
     const pending = new Promise<GeneratedLesson>((_resolve, rejectPromise) => {
       reject = rejectPromise
@@ -405,7 +434,17 @@ describe('GentorialGeneratedRegion', () => {
     reject(new Error('initial request failed'))
     await running
     expect(runtime.getState(spec.id).fallback).toHaveLength(1)
-    expect(render()).toBeNull()
+    const errorRegion = render()
+    expect(errorRegion).not.toBeNull()
+    expect(hasClass(errorRegion!, 'gentorial-generated-region--error')).toBe(true)
+    expect(errorRegion?.props?.['data-expanded']).toBe('true')
+    expect(errorRegion?.props?.['aria-label']).toBe('AI 生成失败')
+    const errorMessage = findVNode(errorRegion!, (candidate) =>
+      hasClass(candidate, 'gentorial-generated-region__error')
+    )
+    expect(errorMessage?.children).toBe('initial request failed')
+    expect(errorMessage?.props?.role).toBe('alert')
+    expect(findVNode(errorRegion!, (candidate) => candidate.type === 'input')).toBeUndefined()
   })
 
   it('clears the persistent follow-up input when the main result starts refreshing', async () => {
@@ -435,7 +474,9 @@ describe('GentorialGeneratedRegion', () => {
     const refreshing = runtime.run(spec.id)
     region = render()
     expect(findVNode(region, (candidate) => candidate.type === 'input')?.props?.value).toBe('')
-    expect(findVNode(region, (candidate) => candidate.type === 'button')?.props?.disabled).toBe(true)
+    expect(findVNode(region, (candidate) => candidate.type === 'button')?.props?.disabled).toBe(
+      true
+    )
 
     resolveReplacement(lesson('replacement'))
     await refreshing

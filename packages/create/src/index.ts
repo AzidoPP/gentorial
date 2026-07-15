@@ -8,6 +8,7 @@ export type CreateGentorialProjectOptions = {
   title?: string
   lang?: string
   packageManager?: ProjectPackageManager
+  allowUnsafeHtml?: boolean
 }
 
 export type ProjectPackageManager = 'pnpm' | 'npm' | 'yarn' | 'bun'
@@ -51,6 +52,7 @@ function applyTemplateValues(
     lang: string
     installCommand: string
     devCommand: string
+    allowUnsafeHtml: string
   }
 ): string {
   return source
@@ -59,6 +61,7 @@ function applyTemplateValues(
     .replaceAll('__COURSE_LANG__', values.lang)
     .replaceAll('__INSTALL_COMMAND__', values.installCommand)
     .replaceAll('__DEV_COMMAND__', values.devCommand)
+    .replaceAll('__ALLOW_UNSAFE_HTML__', values.allowUnsafeHtml)
 }
 
 async function copyTemplateDirectory(
@@ -70,6 +73,7 @@ async function copyTemplateDirectory(
     lang: string
     installCommand: string
     devCommand: string
+    allowUnsafeHtml: string
   }
 ): Promise<void> {
   await mkdir(targetDir, { recursive: true })
@@ -107,7 +111,8 @@ export async function createGentorialProject(
     title: options.title ?? projectName,
     lang: options.lang ?? 'zh-CN',
     installCommand: packageManager === 'yarn' ? 'yarn' : `${packageManager} install`,
-    devCommand: packageManager === 'npm' ? 'npm run dev' : `${packageManager} dev`
+    devCommand: packageManager === 'npm' ? 'npm run dev' : `${packageManager} dev`,
+    allowUnsafeHtml: String(options.allowUnsafeHtml === true)
   })
   await mkdir(resolve(targetDir, 'public'), { recursive: true })
 

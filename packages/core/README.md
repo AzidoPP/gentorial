@@ -17,12 +17,17 @@ export default defineCourse({
     mode: 'hybrid',
     defaultLocale: 'zh-CN'
   },
+  rendering: {
+    allowUnsafeHtml: false
+  },
   accuracy: {
     standards: ['ISO C17'],
     policies: ['概念锚点的结论不可被反转']
   }
 })
 ```
+
+`rendering.allowUnsafeHtml` 默认应保持为 `false`。设为 `true` 时，运行时可渲染模型返回的原始 HTML；站点需要自行承担同源脚本与数据访问风险。
 
 一次生成会分别记录作者限定的 `scope`、标题触发器、`after-source` 输出目标和学习者表达偏好。生成结果必须在 `grounding.sourceIds` 中声明对应章节来源；概念锚点仍通过 `grounding.conceptIds` 独立校验。
 

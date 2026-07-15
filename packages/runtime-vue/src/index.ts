@@ -16,9 +16,11 @@ export type {
   GentorialFollowUpStatus,
   GentorialGenerationState,
   GentorialGenerationStatus,
+  GentorialPersistenceOptions,
   GentorialRegistration,
   GentorialRuntime,
   GentorialRuntimeOptions,
+  GentorialStorage,
   RuntimeGenerationContext,
   RuntimeGenerationRequest
 } from './runtime.js'

@@ -1,7 +1,7 @@
 {
-  "name": "@gentorial/ai",
-  "version": "0.2.0",
-  "description": "Provider-neutral prompt compilation and generation pipeline for Gentorial.",
+  "name": "@gentorial/server",
+  "version": "0.1.0",
+  "description": "Server-managed generation, credentials, and shared result caching for Gentorial.",
   "type": "module",
   "sideEffects": false,
   "files": [
@@ -18,12 +18,13 @@
   "scripts": {
     "build": "tsup src/index.ts --format esm --sourcemap --clean && tsc --emitDeclarationOnly",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --root ../.. --config vitest.config.ts packages/ai/src",
+    "test": "vitest run --root ../.. --config vitest.config.ts packages/server/src",
     "pack:check": "pnpm pack --dry-run"
   },
   "keywords": [
     "gentorial",
-    "ai",
+    "server",
+    "cache",
     "education"
   ],
   "license": "MIT",
@@ -31,6 +32,7 @@
     "access": "public"
   },
   "dependencies": {
+    "@gentorial/ai": "workspace:^",
     "@gentorial/core": "workspace:^"
   }
 }

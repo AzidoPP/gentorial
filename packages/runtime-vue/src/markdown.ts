@@ -2,11 +2,21 @@ import MarkdownIt from 'markdown-it'
 import type Token from 'markdown-it/lib/token.mjs'
 import { h, resolveComponent, type VNodeChild } from 'vue'
 
-const markdown = new MarkdownIt({
+const safeMarkdown = new MarkdownIt({
   html: false,
   linkify: true,
   typographer: false
 })
+
+const unsafeMarkdown = new MarkdownIt({
+  html: true,
+  linkify: true,
+  typographer: false
+})
+
+type MarkdownRenderOptions = {
+  allowUnsafeHtml?: boolean
+}
 
 type RenderFrame = {
   tag: string
@@ -40,6 +50,24 @@ function frameFor(token: Token): RenderFrame | undefined {
       return { tag: 'li' }
     case 'blockquote_open':
       return { tag: 'blockquote' }
+    case 'table_open':
+      return { tag: 'table' }
+    case 'thead_open':
+      return { tag: 'thead' }
+    case 'tbody_open':
+      return { tag: 'tbody' }
+    case 'tr_open':
+      return { tag: 'tr' }
+    case 'th_open':
+    case 'td_open': {
+      const alignment = /^text-align:(left|center|right)$/u.exec(
+        token.attrGet('style')?.replace(/\s+/gu, '') ?? ''
+      )?.[1]
+      return {
+        tag: token.tag,
+        props: alignment ? { style: { textAlign: alignment } } : undefined
+      }
+    }
     case 'em_open':
       return { tag: 'em' }
     case 'strong_open':
@@ -71,7 +99,12 @@ function closingIndex(tokens: Token[], start: number): number {
   return tokens.length - 1
 }
 
-function renderTokens(tokens: Token[], start = 0, end = tokens.length): VNodeChild[] {
+function renderTokens(
+  tokens: Token[],
+  start = 0,
+  end = tokens.length,
+  options: MarkdownRenderOptions = {}
+): VNodeChild[] {
   const children: VNodeChild[] = []
 
   for (let index = start; index < end; index += 1) {
@@ -80,7 +113,7 @@ function renderTokens(tokens: Token[], start = 0, end = tokens.length): VNodeChi
 
     if (token.nesting === 1) {
       const close = closingIndex(tokens, index)
-      const nested = renderTokens(tokens, index + 1, close)
+      const nested = renderTokens(tokens, index + 1, close, options)
       const frame = frameFor(token)
       children.push(frame ? h(frame.tag, frame.props, nested) : nested)
       index = close
@@ -89,7 +122,16 @@ function renderTokens(tokens: Token[], start = 0, end = tokens.length): VNodeChi
 
     switch (token.type) {
       case 'inline':
-        children.push(...renderTokens(token.children ?? []))
+        if (options.allowUnsafeHtml) {
+          children.push(
+            h('span', {
+              class: 'gentorial-markdown__unsafe-inline',
+              innerHTML: unsafeMarkdown.renderInline(token.content)
+            })
+          )
+        } else {
+          children.push(...renderTokens(token.children ?? [], 0, token.children?.length, options))
+        }
         break
       case 'text':
         children.push(token.content)
@@ -108,9 +150,18 @@ function renderTokens(tokens: Token[], start = 0, end = tokens.length): VNodeChi
         if (language === 'mermaid') {
           children.push(h(resolveComponent('GentorialMermaid'), { graph: token.content }))
         } else {
-          children.push(h('pre', [
-            h('code', { class: language ? `language-${language}` : undefined }, token.content)
-          ]))
+          const codeBlock = resolveComponent('GentorialCodeBlock')
+          children.push(
+            typeof codeBlock === 'string'
+              ? h('pre', [
+                  h(
+                    'code',
+                    { class: language ? `language-${language}` : undefined },
+                    token.content
+                  )
+                ])
+              : h(codeBlock, { code: token.content, language })
+          )
         }
         break
       }
@@ -119,6 +170,18 @@ function renderTokens(tokens: Token[], start = 0, end = tokens.length): VNodeChi
         break
       case 'hr':
         children.push(h('hr'))
+        break
+      case 'html_block':
+        if (options.allowUnsafeHtml) {
+          children.push(
+            h('div', {
+              class: 'gentorial-markdown__unsafe-block',
+              innerHTML: token.content
+            })
+          )
+        } else {
+          children.push(token.content)
+        }
         break
       case 'image': {
         const src = safeUrl(token.attrGet('src'))
@@ -141,12 +204,16 @@ function renderTokens(tokens: Token[], start = 0, end = tokens.length): VNodeChi
   return children
 }
 
-export function renderGentorialMarkdown(source: string): VNodeChild[] {
-  return renderTokens(markdown.parse(source, {}))
+export function renderGentorialMarkdown(
+  source: string,
+  options: MarkdownRenderOptions = {}
+): VNodeChild[] {
+  const parser = options.allowUnsafeHtml ? unsafeMarkdown : safeMarkdown
+  return renderTokens(parser.parse(source, {}), 0, undefined, options)
 }
 
 export function gentorialMarkdownAsText(source: string): string {
-  const tokens = markdown.parse(source, {})
+  const tokens = safeMarkdown.parse(source, {})
   return tokens
     .flatMap((token) => {
       if (token.type === 'inline') {

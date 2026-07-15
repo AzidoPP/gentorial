@@ -53,7 +53,29 @@ function deferred<T>() {
   return { promise, resolve, reject }
 }
 
+function memoryStorage() {
+  const values = new Map<string, string>()
+  return {
+    getItem(key: string) {
+      return values.get(key) ?? null
+    },
+    setItem(key: string, value: string) {
+      values.set(key, value)
+    },
+    removeItem(key: string) {
+      values.delete(key)
+    }
+  }
+}
+
 describe('createGentorialRuntime', () => {
+  it('enables raw generated HTML only through an explicit runtime option', () => {
+    expect(createGentorialRuntime({ generate: vi.fn() }).allowUnsafeHtml).toBe(false)
+    expect(
+      createGentorialRuntime({ generate: vi.fn(), allowUnsafeHtml: true }).allowUnsafeHtml
+    ).toBe(true)
+  })
+
   it('renders streamed text incrementally and commits it as a lesson', async () => {
     const gate = deferred<void>()
     const runtime = createGentorialRuntime({
@@ -159,6 +181,85 @@ describe('createGentorialRuntime', () => {
       narrative: 'comparison'
     })
     expect(generate.mock.calls[0]?.[0].learner).toEqual(runtime.learnerProfile.value)
+  })
+
+  it('restores persisted learner preferences and explicitly persisted BYOK credentials', () => {
+    const storage = memoryStorage()
+    const persistence = {
+      key: 'gentorial:test:v1',
+      storage,
+      persistApiKey: true
+    }
+    const first = createGentorialRuntime({ generate: vi.fn(), persistence })
+    first.setLearnerProfile({
+      detail: 'deep',
+      tone: 'conversational',
+      narrative: 'timeline'
+    })
+    first.setByokSession({
+      provider: 'custom',
+      apiKey: 'persisted-secret',
+      model: 'local-model',
+      baseUrl: 'http://localhost:11434/v1'
+    })
+
+    const restored = createGentorialRuntime({ generate: vi.fn(), persistence })
+
+    expect(restored.learnerProfile.value).toEqual({
+      detail: 'deep',
+      tone: 'conversational',
+      narrative: 'timeline'
+    })
+    expect(restored.byokSession.value).toEqual({
+      provider: 'custom',
+      apiKey: 'persisted-secret',
+      model: 'local-model',
+      baseUrl: 'http://localhost:11434/v1'
+    })
+
+    restored.setByokSession(undefined)
+    const cleared = createGentorialRuntime({ generate: vi.fn(), persistence })
+    expect(cleared.byokSession.value).toBeUndefined()
+    expect(cleared.learnerProfile.value.detail).toBe('deep')
+  })
+
+  it('restores successful generated lessons and follow-up context after a reload', async () => {
+    const storage = memoryStorage()
+    const persistence = { key: 'gentorial:generated:v1', storage }
+    const initialLesson = { ...lesson('persisted lesson'), markdown: 'persisted **lesson**' }
+    const followUpLesson = lesson('persisted follow-up')
+    const firstGenerate = vi.fn()
+      .mockResolvedValueOnce(initialLesson)
+      .mockResolvedValueOnce(followUpLesson)
+    const first = createGentorialRuntime({ generate: firstGenerate, persistence })
+    first.register({ generate: spec, concepts: [concept] })
+
+    await first.run(spec.id)
+    await first.ask(spec.id, '继续解释')
+    first.setExpanded(spec.id, false)
+
+    const restoredGenerate = vi.fn().mockResolvedValue(lesson('second follow-up'))
+    const restored = createGentorialRuntime({ generate: restoredGenerate, persistence })
+    restored.register({ generate: spec, concepts: [concept] })
+
+    expect(restored.getState(spec.id)).toMatchObject({
+      status: 'success',
+      markdown: 'persisted **lesson**',
+      blocks: [{ type: 'paragraph', text: 'persisted lesson' }],
+      expanded: false,
+      conversation: [
+        { role: 'user', content: '继续解释' },
+        { role: 'assistant', lesson: followUpLesson }
+      ]
+    })
+
+    await restored.ask(spec.id, '再解释一次')
+    expect(restoredGenerate.mock.calls[0]?.[0].conversation).toEqual([
+      { role: 'assistant', lesson: initialLesson },
+      { role: 'user', content: '继续解释' },
+      { role: 'assistant', lesson: followUpLesson },
+      { role: 'user', content: '再解释一次' }
+    ])
   })
 
   it('forwards the in-memory BYOK session only through generation context', async () => {

@@ -1,9 +1,17 @@
-import type {
-  ConceptSpec,
-  GenerateSpec,
-  LearnerProfile,
-  LessonBlock
-} from '@gentorial/core'
+import type { ConceptSpec, GenerateSpec, LearnerProfile, LessonBlock } from '@gentorial/core'
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  Copy,
+  FileCode,
+  Maximize2,
+  Minimize2,
+  RefreshCw,
+  SlidersHorizontal,
+  ThumbsDown,
+  ThumbsUp
+} from '@lucide/vue'
 import {
   computed,
   defineComponent,
@@ -15,14 +23,12 @@ import {
   ref,
   Teleport,
   watch,
+  type Component,
   type PropType,
   type VNode,
   type VNodeChild
 } from 'vue'
-import {
-  gentorialRuntimeKey,
-  type GentorialGenerationStatus
-} from './runtime.js'
+import { gentorialRuntimeKey, type GentorialGenerationStatus } from './runtime.js'
 import { gentorialMarkdownAsText, renderGentorialMarkdown } from './markdown.js'
 
 export const GentorialMarkdownRenderer = defineComponent({
@@ -34,11 +40,15 @@ export const GentorialMarkdownRenderer = defineComponent({
     }
   },
   setup(props) {
-    return () => h(
-      'div',
-      { class: 'gentorial-markdown' },
-      renderGentorialMarkdown(props.source)
-    )
+    const runtime = inject(gentorialRuntimeKey, undefined)
+    return () =>
+      h(
+        'div',
+        { class: 'gentorial-markdown' },
+        renderGentorialMarkdown(props.source, {
+          allowUnsafeHtml: runtime?.allowUnsafeHtml === true
+        })
+      )
   }
 })
 
@@ -58,7 +68,13 @@ function renderBlock(block: LessonBlock, key: number): VNodeChild {
       return h('figure', { key, class: 'gentorial-code' }, [
         ...(block.caption ? [h('figcaption', block.caption)] : []),
         h('pre', [
-          h('code', { class: block.language ? `language-${block.language}` : undefined }, block.code)
+          h(
+            'code',
+            {
+              class: block.language ? `language-${block.language}` : undefined
+            },
+            block.code
+          )
         ])
       ])
     case 'callout':
@@ -75,11 +91,17 @@ function renderBlock(block: LessonBlock, key: number): VNodeChild {
       return h('div', { key, class: 'gentorial-comparison' }, [
         h('section', [
           h('h4', block.left.title),
-          h('ul', block.left.items.map((item, index) => h('li', { key: index }, item)))
+          h(
+            'ul',
+            block.left.items.map((item, index) => h('li', { key: index }, item))
+          )
         ]),
         h('section', [
           h('h4', block.right.title),
-          h('ul', block.right.items.map((item, index) => h('li', { key: index }, item)))
+          h(
+            'ul',
+            block.right.items.map((item, index) => h('li', { key: index }, item))
+          )
         ])
       ])
   }
@@ -98,9 +120,10 @@ export const LessonBlockRenderer = defineComponent({
     }
   },
   setup(props) {
-    return () => props.markdown
-      ? h(GentorialMarkdownRenderer, { source: props.markdown })
-      : h('div', { class: 'gentorial-lesson-blocks' }, props.blocks.map(renderBlock))
+    return () =>
+      props.markdown
+        ? h(GentorialMarkdownRenderer, { source: props.markdown })
+        : h('div', { class: 'gentorial-lesson-blocks' }, props.blocks.map(renderBlock))
   }
 })
 
@@ -135,47 +158,69 @@ function triggerText(status: GentorialGenerationStatus, subject: string): string
 }
 
 function blocksAsText(blocks: readonly LessonBlock[], markdown: boolean): string {
-  return blocks.map((block) => {
-    switch (block.type) {
-      case 'paragraph':
-        return block.text
-      case 'heading':
-        return markdown ? `${'#'.repeat(block.level)} ${block.text}` : block.text
-      case 'list':
-        return block.items.map((item, index) =>
-          markdown ? `${block.ordered ? `${index + 1}.` : '-'} ${item}` : item
-        ).join('\n')
-      case 'code':
-        return markdown
-          ? `${block.caption ? `${block.caption}\n\n` : ''}\`\`\`${block.language ?? ''}\n${block.code}\n\`\`\``
-          : `${block.caption ? `${block.caption}\n` : ''}${block.code}`
-      case 'callout':
-        return [block.title, block.text].filter(Boolean).join('\n')
-      case 'comparison':
-        return [block.left, block.right].map((side) =>
-          `${side.title}\n${side.items.map((item) => markdown ? `- ${item}` : item).join('\n')}`
-        ).join('\n\n')
-    }
-  }).join('\n\n')
+  return blocks
+    .map((block) => {
+      switch (block.type) {
+        case 'paragraph':
+          return block.text
+        case 'heading':
+          return markdown ? `${'#'.repeat(block.level)} ${block.text}` : block.text
+        case 'list':
+          return block.items
+            .map((item, index) =>
+              markdown ? `${block.ordered ? `${index + 1}.` : '-'} ${item}` : item
+            )
+            .join('\n')
+        case 'code':
+          return markdown
+            ? `${block.caption ? `${block.caption}\n\n` : ''}\`\`\`${block.language ?? ''}\n${block.code}\n\`\`\``
+            : `${block.caption ? `${block.caption}\n` : ''}${block.code}`
+        case 'callout':
+          return [block.title, block.text].filter(Boolean).join('\n')
+        case 'comparison':
+          return [block.left, block.right]
+            .map(
+              (side) =>
+                `${side.title}\n${side.items.map((item) => (markdown ? `- ${item}` : item)).join('\n')}`
+            )
+            .join('\n\n')
+      }
+    })
+    .join('\n\n')
 }
 
-type ControlIcon = 'regenerate' | 'copy' | 'markdown' | 'up' | 'down' | 'expand' | 'collapse' | 'preferences'
+type ControlIcon =
+  | 'regenerate'
+  | 'copy'
+  | 'markdown'
+  | 'up'
+  | 'down'
+  | 'expand'
+  | 'collapse'
+  | 'preferences'
+  | 'arrow-left'
+  | 'arrow-right'
+  | 'check'
 
 function controlIcon(icon: ControlIcon): VNode {
-  const paths: Record<ControlIcon, VNodeChild[]> = {
-    regenerate: [h('path', { d: 'M20 11a8.1 8.1 0 1 0 2.2 5.5' }), h('path', { d: 'M20 4v7h-7' })],
-    copy: [h('rect', { x: '9', y: '9', width: '11', height: '11', rx: '2' }), h('path', { d: 'M15 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h3' })],
-    markdown: [h('path', { d: 'M4 5h16v14H4z' }), h('path', { d: 'M7 15V9l2.5 3L12 9v6M15 12l2 2 2-2M17 9v5' })],
-    up: [h('path', { d: 'M7 10v12H3V10h4Zm0 10h10.3a2 2 0 0 0 2-1.6l1.4-7A2 2 0 0 0 18.7 9H14l.7-3.5A3 3 0 0 0 12 2l-5 8' })],
-    down: [h('path', { d: 'M7 14V2H3v12h4Zm0-10h10.3a2 2 0 0 1 2 1.6l1.4 7a2 2 0 0 1-2 2.4H14l.7 3.5A3 3 0 0 1 12 22l-5-8' })],
-    expand: [h('path', { d: 'M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5' })],
-    collapse: [h('path', { d: 'M3 8h5V3M21 8h-5V3M3 16h5v5M21 16h-5v5' })],
-    preferences: [h('path', { d: 'M4 7h10M18 7h2M4 17h2M10 17h10' }), h('circle', { cx: '16', cy: '7', r: '2' }), h('circle', { cx: '8', cy: '17', r: '2' })]
+  const icons: Record<ControlIcon, Component> = {
+    regenerate: RefreshCw,
+    copy: Copy,
+    markdown: FileCode,
+    up: ThumbsUp,
+    down: ThumbsDown,
+    expand: Maximize2,
+    collapse: Minimize2,
+    preferences: SlidersHorizontal,
+    'arrow-left': ArrowLeft,
+    'arrow-right': ArrowRight,
+    check: Check
   }
-  return h('svg', {
-    viewBox: '0 0 24 24', width: '15', height: '15', fill: 'none', stroke: 'currentColor',
-    'stroke-width': '1.7', 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true'
-  }, paths[icon])
+  return h(icons[icon], {
+    size: 16,
+    strokeWidth: 1.75,
+    'aria-hidden': 'true'
+  })
 }
 
 export const GentorialGenerateTrigger = defineComponent({
@@ -207,13 +252,16 @@ export const GentorialGenerateTrigger = defineComponent({
     let frame = 0
     let lastFrame = 0
 
-    watch(() => state.value?.status, (status) => {
-      transitionStarted = typeof performance === 'undefined' ? 0 : performance.now()
-      primaryStart = primarySpeed
-      secondaryStart = secondarySpeed
-      primaryTarget = status === 'loading' ? 620 : 62
-      secondaryTarget = status === 'loading' ? -430 : -43
-    })
+    watch(
+      () => state.value?.status,
+      (status) => {
+        transitionStarted = typeof performance === 'undefined' ? 0 : performance.now()
+        primaryStart = primarySpeed
+        secondaryStart = secondarySpeed
+        primaryTarget = status === 'loading' ? 620 : 62
+        secondaryTarget = status === 'loading' ? -430 : -43
+      }
+    )
 
     onMounted(() => {
       if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
@@ -224,8 +272,8 @@ export const GentorialGenerateTrigger = defineComponent({
         const eased = 1 - Math.pow(1 - progress, 3)
         primarySpeed = primaryStart + (primaryTarget - primaryStart) * eased
         secondarySpeed = secondaryStart + (secondaryTarget - secondaryStart) * eased
-        primaryRotation.value = (primaryRotation.value + primarySpeed * delta / 1000) % 360
-        secondaryRotation.value = (secondaryRotation.value + secondarySpeed * delta / 1000) % 360
+        primaryRotation.value = (primaryRotation.value + (primarySpeed * delta) / 1000) % 360
+        secondaryRotation.value = (secondaryRotation.value + (secondarySpeed * delta) / 1000) % 360
         frame = window.requestAnimationFrame(tick)
       }
       transitionStarted = performance.now() - 1000
@@ -243,23 +291,35 @@ export const GentorialGenerateTrigger = defineComponent({
       if (!state.value || typeof navigator === 'undefined' || !navigator.clipboard) return
       const sources = [
         state.value.markdown ?? blocksAsText(state.value.blocks, true),
-        ...state.value.conversation.flatMap((turn) => turn.role === 'assistant'
-          ? [turn.lesson.markdown ?? blocksAsText(turn.lesson.blocks, true)]
-          : [])
+        ...state.value.conversation.flatMap((turn) =>
+          turn.role === 'assistant'
+            ? [turn.lesson.markdown ?? blocksAsText(turn.lesson.blocks, true)]
+            : []
+        )
       ]
       const markdown = sources.filter(Boolean).join('\n\n')
-      await navigator.clipboard.writeText(format === 'markdown'
-        ? markdown
-        : gentorialMarkdownAsText(markdown))
+      await navigator.clipboard.writeText(
+        format === 'markdown' ? markdown : gentorialMarkdownAsText(markdown)
+      )
       copied.value = format
-      window.setTimeout(() => { copied.value = undefined }, 1200)
+      window.setTimeout(() => {
+        copied.value = undefined
+      }, 1200)
     }
 
     function control(label: string, icon: ControlIcon, action: () => void, active = false): VNode {
-      return h('button', {
-        type: 'button', class: 'gentorial-generation-toolbar__button', title: label,
-        'aria-label': label, 'aria-pressed': active || undefined, onClick: action
-      }, controlIcon(icon))
+      return h(
+        'button',
+        {
+          type: 'button',
+          class: 'gentorial-generation-toolbar__button',
+          title: label,
+          'aria-label': label,
+          'aria-pressed': active || undefined,
+          onClick: action
+        },
+        controlIcon(icon)
+      )
     }
 
     return () => {
@@ -267,38 +327,119 @@ export const GentorialGenerateTrigger = defineComponent({
       const text = triggerText(status, props.label ?? props.generateId)
       const filterId = `gentorial-mini-liquid-${props.generateId.replace(/[^a-z0-9_-]/giu, '-')}`
       return h('span', { class: 'gentorial-generation-controls ignore-header' }, [
-        h('button', {
-          type: 'button',
-          class: 'gentorial-generate-trigger',
-          'data-status': status,
-          'aria-controls': `gentorial-generated-${props.generateId}`,
-          'aria-label': text,
-          'aria-expanded': state.value?.expanded ?? false,
-          'aria-busy': status === 'loading' ? 'true' : undefined,
-          'aria-disabled': status === 'loading' || status === 'success' ? 'true' : undefined,
-          title: text,
-          disabled: !runtime,
-          onClick: activate
-        }, h('span', { class: 'gentorial-mini-orb', 'aria-hidden': 'true' }, [
-          h('span', { class: 'gentorial-mini-orb__base' }),
-          h('span', { class: 'gentorial-mini-orb__liquid-primary', style: { rotate: `${primaryRotation.value}deg`, filter: `url(#${filterId}) blur(0.25px)` } }),
-          h('span', { class: 'gentorial-mini-orb__liquid-secondary', style: { rotate: `${secondaryRotation.value}deg` } }),
-          h('span', { class: 'gentorial-mini-orb__sheen' })
-        ])),
-        ...(status === 'success' ? [h('span', { class: 'gentorial-generation-toolbar' }, [
-          control('重新生成', 'regenerate', () => { feedback.value = undefined; copied.value = undefined; void runtime?.run(props.generateId) }),
-          control(copied.value === 'text' ? '已复制文字' : '复制文字', 'copy', () => { void copy('text') }),
-          control(copied.value === 'markdown' ? '已复制 Markdown' : '复制 Markdown', 'markdown', () => { void copy('markdown') }),
-          control('赞同', 'up', () => { feedback.value = feedback.value === 'up' ? undefined : 'up' }, feedback.value === 'up'),
-          control('反对', 'down', () => { feedback.value = feedback.value === 'down' ? undefined : 'down' }, feedback.value === 'down'),
-          control(state.value?.expanded ? '收起讲解' : '展开讲解', state.value?.expanded ? 'collapse' : 'expand', () => runtime?.setExpanded(props.generateId, !state.value?.expanded))
-        ])] : []),
-        h('svg', { class: 'gentorial-mini-orb__filter', width: '0', height: '0', 'aria-hidden': 'true' }, [
-          h('defs', [h('filter', { id: filterId, x: '-35%', y: '-35%', width: '170%', height: '170%', colorInterpolationFilters: 'sRGB' }, [
-            h('feTurbulence', { type: 'fractalNoise', baseFrequency: '0.075 0.11', numOctaves: '2', seed: '19', result: 'noise' }),
-            h('feDisplacementMap', { in: 'SourceGraphic', in2: 'noise', scale: '7', xChannelSelector: 'R', yChannelSelector: 'B' })
-          ])])
-        ])
+        h(
+          'button',
+          {
+            type: 'button',
+            class: 'gentorial-generate-trigger',
+            'data-status': status,
+            'aria-controls': `gentorial-generated-${props.generateId}`,
+            'aria-label': text,
+            'aria-expanded': state.value?.expanded ?? false,
+            'aria-busy': status === 'loading' ? 'true' : undefined,
+            'aria-disabled': status === 'loading' || status === 'success' ? 'true' : undefined,
+            title: text,
+            disabled: !runtime,
+            onClick: activate
+          },
+          h('span', { class: 'gentorial-mini-orb', 'aria-hidden': 'true' }, [
+            h('span', { class: 'gentorial-mini-orb__base' }),
+            h('span', {
+              class: 'gentorial-mini-orb__liquid-primary',
+              style: {
+                rotate: `${primaryRotation.value}deg`,
+                filter: `url(#${filterId}) blur(0.25px)`
+              }
+            }),
+            h('span', {
+              class: 'gentorial-mini-orb__liquid-secondary',
+              style: { rotate: `${secondaryRotation.value}deg` }
+            }),
+            h('span', { class: 'gentorial-mini-orb__sheen' })
+          ])
+        ),
+        ...(status === 'success'
+          ? [
+              h('span', { class: 'gentorial-generation-toolbar' }, [
+                control('重新生成', 'regenerate', () => {
+                  feedback.value = undefined
+                  copied.value = undefined
+                  void runtime?.run(props.generateId)
+                }),
+                control(copied.value === 'text' ? '已复制文字' : '复制文字', 'copy', () => {
+                  void copy('text')
+                }),
+                control(
+                  copied.value === 'markdown' ? '已复制 Markdown' : '复制 Markdown',
+                  'markdown',
+                  () => {
+                    void copy('markdown')
+                  }
+                ),
+                control(
+                  '赞同',
+                  'up',
+                  () => {
+                    feedback.value = feedback.value === 'up' ? undefined : 'up'
+                  },
+                  feedback.value === 'up'
+                ),
+                control(
+                  '反对',
+                  'down',
+                  () => {
+                    feedback.value = feedback.value === 'down' ? undefined : 'down'
+                  },
+                  feedback.value === 'down'
+                ),
+                control(
+                  state.value?.expanded ? '收起讲解' : '展开讲解',
+                  state.value?.expanded ? 'collapse' : 'expand',
+                  () => runtime?.setExpanded(props.generateId, !state.value?.expanded)
+                )
+              ])
+            ]
+          : []),
+        h(
+          'svg',
+          {
+            class: 'gentorial-mini-orb__filter',
+            width: '0',
+            height: '0',
+            'aria-hidden': 'true'
+          },
+          [
+            h('defs', [
+              h(
+                'filter',
+                {
+                  id: filterId,
+                  x: '-35%',
+                  y: '-35%',
+                  width: '170%',
+                  height: '170%',
+                  colorInterpolationFilters: 'sRGB'
+                },
+                [
+                  h('feTurbulence', {
+                    type: 'fractalNoise',
+                    baseFrequency: '0.075 0.11',
+                    numOctaves: '2',
+                    seed: '19',
+                    result: 'noise'
+                  }),
+                  h('feDisplacementMap', {
+                    in: 'SourceGraphic',
+                    in2: 'noise',
+                    scale: '7',
+                    xChannelSelector: 'R',
+                    yChannelSelector: 'B'
+                  })
+                ]
+              )
+            ])
+          ]
+        )
       ])
     }
   }
@@ -364,11 +505,7 @@ export const GentorialGeneratedRegion = defineComponent({
 
     function submitQuestion(): void {
       const content = question.value.trim()
-      if (
-        !runtime ||
-        content.length === 0 ||
-        state.value?.followUpStatus === 'loading'
-      ) return
+      if (!runtime || content.length === 0 || state.value?.followUpStatus === 'loading') return
 
       clearQuestion(false)
       void runtime.ask(props.spec.id, content)
@@ -390,28 +527,40 @@ export const GentorialGeneratedRegion = defineComponent({
       const current = state.value
       const regionId = `gentorial-generated-${props.spec.id}`
 
-      if (!runtime || !current || current.blocks.length === 0) return null
+      if (!runtime || !current) return null
+
+      const hasLesson = current.blocks.length > 0
+      const showMainError = current.status === 'error' && Boolean(current.error)
+      const showFollowUpError =
+        current.followUpStatus === 'error' && Boolean(current.followUpError)
+      const showError = showMainError || showFollowUpError
+      if (!hasLesson && !showError) return null
 
       const inputId = `gentorial-follow-up-${props.spec.id}`
       const statusId = `${inputId}-status`
       const assistantLessons = current.conversation.flatMap((turn, index) =>
         turn.role === 'assistant'
-          ? [h(LessonBlockRenderer, {
-              key: `assistant-${index}`,
-              blocks: turn.lesson.blocks,
-              ...(turn.lesson.markdown ? { markdown: turn.lesson.markdown } : {})
-            })]
+          ? [
+              h(LessonBlockRenderer, {
+                key: `assistant-${index}`,
+                blocks: turn.lesson.blocks,
+                ...(turn.lesson.markdown ? { markdown: turn.lesson.markdown } : {})
+              })
+            ]
           : []
       )
-      const streamingFollowUp = current.streamingFollowUpBlocks.length > 0
-        ? [h(LessonBlockRenderer, {
-            key: 'assistant-stream',
-            blocks: current.streamingFollowUpBlocks,
-            ...(current.streamingFollowUpMarkdown
-              ? { markdown: current.streamingFollowUpMarkdown }
-              : {})
-          })]
-        : []
+      const streamingFollowUp =
+        current.streamingFollowUpBlocks.length > 0
+          ? [
+              h(LessonBlockRenderer, {
+                key: 'assistant-stream',
+                blocks: current.streamingFollowUpBlocks,
+                ...(current.streamingFollowUpMarkdown
+                  ? { markdown: current.streamingFollowUpMarkdown }
+                  : {})
+              })
+            ]
+          : []
       const hiddenStyle = {
         position: 'absolute',
         width: '1px',
@@ -428,75 +577,99 @@ export const GentorialGeneratedRegion = defineComponent({
         'section',
         {
           id: regionId,
-          class: ['gentorial-generated-region', 'gentorial-generated-region--success'],
-          'data-expanded': current.expanded ? 'true' : 'false',
-          'aria-hidden': current.expanded ? undefined : 'true',
-          inert: current.expanded ? undefined : '',
+          class: [
+            'gentorial-generated-region',
+            showError
+              ? 'gentorial-generated-region--error'
+              : 'gentorial-generated-region--success'
+          ],
+          'data-expanded': showError || current.expanded ? 'true' : 'false',
+          'data-status': current.status,
+          'aria-hidden': showError || current.expanded ? undefined : 'true',
+          inert: showError || current.expanded ? undefined : '',
           'data-generate-id': props.spec.id,
-          'aria-label': '继续提问',
-          'aria-busy': current.status === 'loading' || current.followUpStatus === 'loading'
-            ? 'true'
-            : undefined
+          'aria-label': showError ? 'AI 生成失败' : '继续提问',
+          'aria-busy':
+            current.status === 'loading' || current.followUpStatus === 'loading'
+              ? 'true'
+              : undefined
         },
         [
-          h(LessonBlockRenderer, {
-            key: 'base',
-            blocks: current.blocks,
-            ...(current.markdown ? { markdown: current.markdown } : {})
-          }),
-          ...assistantLessons,
-          ...streamingFollowUp,
-          ...(current.followUpError
+          ...(showMainError
             ? [
                 h(
-                  'span',
+                  'p',
                   {
-                    id: statusId,
-                    class: 'gentorial-generated-region__follow-up-semantic-status',
-                    style: hiddenStyle,
+                    class: 'gentorial-generated-region__error',
+                    role: 'alert',
                     'aria-live': 'assertive'
                   },
-                  current.followUpError
+                  current.error
                 )
               ]
             : []),
-          h(
-            'div',
-            {
-              class: 'gentorial-generated-region__follow-up-composer'
-            },
-            [
-              h('label', { for: inputId, style: hiddenStyle }, '继续提问'),
-              h(
-                'input',
-                {
-                  id: inputId,
-                  class: 'gentorial-generated-region__follow-up-input',
-                  type: 'text',
-                  value: question.value,
-                  placeholder: '继续追问…',
-                  'aria-describedby': current.followUpError ? statusId : undefined,
-                  'aria-invalid': current.followUpStatus === 'error' ? 'true' : undefined,
-                  onInput: (event: Event) => {
-                    question.value = (event.currentTarget as HTMLInputElement).value
+          ...(hasLesson
+            ? [
+                h(LessonBlockRenderer, {
+                  key: 'base',
+                  blocks: current.blocks,
+                  ...(current.markdown ? { markdown: current.markdown } : {})
+                }),
+                ...assistantLessons,
+                ...streamingFollowUp,
+                ...(showFollowUpError
+                  ? [
+                      h(
+                        'p',
+                        {
+                          id: statusId,
+                          class: [
+                            'gentorial-generated-region__error',
+                            'gentorial-generated-region__follow-up-error'
+                          ],
+                          role: 'alert',
+                          'aria-live': 'assertive'
+                        },
+                        current.followUpError
+                      )
+                    ]
+                  : []),
+                h(
+                  'div',
+                  {
+                    class: 'gentorial-generated-region__follow-up-composer'
                   },
-                  onKeydown: handleInputKeydown
-                }
-              ),
-              h(
-                'button',
-                {
-                  type: 'button',
-                  class: 'gentorial-generated-region__follow-up-submit',
-                  disabled:
-                    question.value.trim().length === 0 ||
-                    current.followUpStatus === 'loading',
-                  onClick: submitQuestion
-                },
-                '发送'
-              )
-            ]
-          )
+                  [
+                    h('label', { for: inputId, style: hiddenStyle }, '继续提问'),
+                    h('input', {
+                      id: inputId,
+                      class: 'gentorial-generated-region__follow-up-input',
+                      type: 'text',
+                      value: question.value,
+                      placeholder: '继续追问…',
+                      'aria-describedby': current.followUpError ? statusId : undefined,
+                      'aria-invalid': current.followUpStatus === 'error' ? 'true' : undefined,
+                      onInput: (event: Event) => {
+                        question.value = (event.currentTarget as HTMLInputElement).value
+                      },
+                      onKeydown: handleInputKeydown
+                    }),
+                    h(
+                      'button',
+                      {
+                        type: 'button',
+                        class: 'gentorial-generated-region__follow-up-submit',
+                        disabled:
+                          question.value.trim().length === 0 ||
+                          current.followUpStatus === 'loading',
+                        onClick: submitQuestion
+                      },
+                      '发送'
+                    )
+                  ]
+                )
+              ]
+            : [])
         ]
       )
     }
@@ -523,8 +696,7 @@ const toneOptions: SelectOption<NonNullable<LearnerProfile['tone']>>[] = [
 const narrativeOptions: SelectOption<NonNullable<LearnerProfile['narrative']>>[] = [
   { value: 'direct', label: '直接' },
   { value: 'story', label: '故事' },
-  { value: 'timeline', label: '时间线' },
-  { value: 'comparison', label: '对比' }
+  { value: 'timeline', label: '时间线' }
 ]
 
 export const GentorialPreferences = defineComponent({
@@ -537,20 +709,30 @@ export const GentorialPreferences = defineComponent({
   },
   setup(props) {
     const runtime = inject(gentorialRuntimeKey, undefined)
+    const savedByok = runtime?.byokSession.value
     const step = ref<'preferences' | 'byok'>('preferences')
     const completed = ref(false)
     const open = ref(props.presentation === 'inline')
-    const provider = ref('openai')
-    const apiKey = ref('')
-    const model = ref('gpt-5.6-terra')
-    const baseUrl = ref('https://api.openai.com/v1')
+    const provider = ref(savedByok?.provider ?? 'openai')
+    const apiKey = ref(savedByok?.apiKey ?? '')
+    const model = ref(savedByok?.model ?? 'gpt-5.6-terra')
+    const baseUrl = ref(savedByok?.baseUrl ?? savedByok?.endpoint ?? 'https://api.openai.com/v1')
     let dialogElement: HTMLElement | undefined
     let triggerElement: HTMLButtonElement | undefined
 
     const providerDefaults: Record<string, { model: string; baseUrl: string }> = {
-      openai: { model: 'gpt-5.6-terra', baseUrl: 'https://api.openai.com/v1' },
-      anthropic: { model: 'claude-sonnet-5', baseUrl: 'https://api.anthropic.com/v1' },
-      google: { model: 'gemini-3.5-flash', baseUrl: 'https://generativelanguage.googleapis.com/v1beta' },
+      openai: {
+        model: 'gpt-5.6-terra',
+        baseUrl: 'https://api.openai.com/v1'
+      },
+      anthropic: {
+        model: 'claude-sonnet-5',
+        baseUrl: 'https://api.anthropic.com/v1'
+      },
+      google: {
+        model: 'gemini-3.5-flash',
+        baseUrl: 'https://generativelanguage.googleapis.com/v1beta'
+      },
       custom: { model: '', baseUrl: '' }
     }
 
@@ -560,9 +742,11 @@ export const GentorialPreferences = defineComponent({
         return
       }
       if (event.key !== 'Tab' || !open.value || !dialogElement) return
-      const focusable = [...dialogElement.querySelectorAll<HTMLElement>(
-        'button:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
-      )]
+      const focusable = [
+        ...dialogElement.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )
+      ]
       if (focusable.length === 0) return
       const first = focusable[0]!
       const last = focusable.at(-1)!
@@ -601,35 +785,38 @@ export const GentorialPreferences = defineComponent({
       })
     }
 
-    function select<K extends 'detail' | 'tone' | 'narrative'>(
+    function preferenceGroup<K extends 'detail' | 'tone' | 'narrative'>(
       key: K,
       label: string,
       options: SelectOption<NonNullable<LearnerProfile[K]>>[]
     ): VNodeChild {
       const fallback = options[0]?.value ?? ''
       const value = runtime?.learnerProfile.value[key] ?? fallback
-      return h('label', { class: 'gentorial-preferences__field' }, [
-        h('span', label),
+      return h('fieldset', { class: 'gentorial-preferences__group' }, [
+        h('legend', { class: 'gentorial-preferences__legend' }, label),
         h(
-          'select',
-          {
-            value,
-            disabled: !runtime,
-            onChange: (event: Event) => {
-              update(key, (event.currentTarget as HTMLSelectElement).value as NonNullable<LearnerProfile[K]>)
-            }
-          },
-          options.map((option) =>
-            h(
-              'option',
+          'div',
+          { class: 'gentorial-preferences__options' },
+          options.map((option) => {
+            const selected = option.value === value
+            return h(
+              'button',
               {
                 key: option.value,
-                value: option.value,
-                selected: option.value === value
+                class: [
+                  'gentorial-preferences__option',
+                  selected && 'gentorial-preferences__option--selected'
+                ],
+                type: 'button',
+                disabled: !runtime,
+                'aria-pressed': selected,
+                'data-preference-key': key,
+                'data-preference-value': option.value,
+                onClick: () => update(key, option.value)
               },
-              option.label
+              [h('span', option.label), controlIcon('check')]
             )
-          )
+          })
         )
       ])
     }
@@ -650,16 +837,20 @@ export const GentorialPreferences = defineComponent({
     }
 
     function renderCard(): VNode {
+      const canGoBack = step.value === 'byok' || props.presentation === 'nav'
       const header = h('div', { class: 'gentorial-preferences__header' }, [
-        step.value === 'byok'
+        canGoBack
           ? h(
               'button',
               {
                 class: 'gentorial-preferences__back',
                 type: 'button',
-                onClick: () => { step.value = 'preferences' }
+                onClick: () => {
+                  if (step.value === 'byok') step.value = 'preferences'
+                  else open.value = false
+                }
               },
-              '← 返回'
+              [controlIcon('arrow-left'), h('span', '返回')]
             )
           : h('span'),
         h(
@@ -670,118 +861,154 @@ export const GentorialPreferences = defineComponent({
       ])
 
       if (step.value === 'preferences') {
-        return h('section', { class: 'gentorial-preferences', role: props.presentation === 'nav' ? 'dialog' : undefined, 'aria-modal': props.presentation === 'nav' ? 'true' : undefined, 'aria-label': '个性化设置', tabindex: props.presentation === 'nav' ? -1 : undefined, ref: (element) => { dialogElement = element as HTMLElement } }, [
+        return h(
+          'section',
+          {
+            class: 'gentorial-preferences',
+            tabindex: props.presentation === 'nav' ? -1 : undefined,
+            ref: (element) => {
+              dialogElement = element as HTMLElement
+            }
+          },
+          [
+            header,
+            h('div', { class: 'gentorial-preferences__fields' }, [
+              preferenceGroup('detail', '内容深度', detailOptions),
+              preferenceGroup('tone', '表达语气', toneOptions),
+              preferenceGroup('narrative', '叙事方式', narrativeOptions)
+            ]),
+            h('div', { class: 'gentorial-preferences__actions' }, [
+              h(
+                'button',
+                {
+                  class: 'gentorial-preferences__primary',
+                  type: 'button',
+                  onClick: () => {
+                    step.value = 'byok'
+                  }
+                },
+                [h('span', '继续'), controlIcon('arrow-right')]
+              )
+            ])
+          ]
+        )
+      }
+
+      return h(
+        'section',
+        {
+          class: 'gentorial-preferences',
+          tabindex: props.presentation === 'nav' ? -1 : undefined,
+          ref: (element) => {
+            dialogElement = element as HTMLElement
+          }
+        },
+        [
           header,
-          h('div', { class: 'gentorial-preferences__fields' }, [
-            select('detail', '内容深度', detailOptions),
-            select('tone', '表达语气', toneOptions),
-            select('narrative', '叙事方式', narrativeOptions)
+          h('div', { class: 'gentorial-preferences__byok' }, [
+            h('label', { class: 'gentorial-preferences__field' }, [
+              h('span', '提供方'),
+              h(
+                'select',
+                {
+                  value: provider.value,
+                  onChange: (event: Event) => {
+                    provider.value = (event.currentTarget as HTMLSelectElement).value
+                    const defaults = providerDefaults[provider.value] ?? providerDefaults.custom!
+                    model.value = defaults.model
+                    baseUrl.value = defaults.baseUrl
+                  }
+                },
+                [
+                  ['openai', 'OpenAI'],
+                  ['anthropic', 'Anthropic'],
+                  ['google', 'Google'],
+                  ['custom', 'OpenAI-compatible']
+                ].map(([value, label]) => h('option', { value }, label))
+              )
+            ]),
+            h('label', { class: 'gentorial-preferences__field' }, [
+              h('span', '模型'),
+              h('input', {
+                type: 'text',
+                value: model.value,
+                spellcheck: false,
+                placeholder:
+                  provider.value === 'custom'
+                    ? '必填，例如 llama3.2'
+                    : providerDefaults[provider.value]?.model,
+                onInput: (event: Event) => {
+                  model.value = (event.currentTarget as HTMLInputElement).value
+                }
+              })
+            ]),
+            h('label', { class: 'gentorial-preferences__field' }, [
+              h('span', 'API key'),
+              h('input', {
+                type: 'password',
+                value: apiKey.value,
+                autocomplete: 'off',
+                spellcheck: false,
+                placeholder: runtime?.persistence.persistApiKey
+                  ? '保存在当前站点的浏览器存储中'
+                  : '仅保存在当前页面会话内存中',
+                onInput: (event: Event) => {
+                  apiKey.value = (event.currentTarget as HTMLInputElement).value
+                }
+              })
+            ]),
+            h(
+              'label',
+              {
+                class: 'gentorial-preferences__field gentorial-preferences__field--wide'
+              },
+              [
+                h('span', 'Base URL'),
+                h('input', {
+                  type: 'url',
+                  value: baseUrl.value,
+                  spellcheck: false,
+                  placeholder:
+                    providerDefaults[provider.value]?.baseUrl || 'https://example.com/v1',
+                  onInput: (event: Event) => {
+                    baseUrl.value = (event.currentTarget as HTMLInputElement).value
+                  }
+                })
+              ]
+            )
           ]),
+          h(
+            'p',
+            { class: 'gentorial-preferences__notice' },
+            runtime?.persistence.persistApiKey
+              ? '密钥仅保存在当前站点的浏览器存储中，不会写入静态产物或日志。公共设备使用后请点击“跳过”清除密钥。'
+              : '可跳过。浏览器直连密钥不会写入静态产物、localStorage 或日志。'
+          ),
           h('div', { class: 'gentorial-preferences__actions' }, [
+            h(
+              'button',
+              {
+                class: 'gentorial-preferences__secondary',
+                type: 'button',
+                onClick: () => finish(true)
+              },
+              '跳过'
+            ),
             h(
               'button',
               {
                 class: 'gentorial-preferences__primary',
                 type: 'button',
-                onClick: () => { step.value = 'byok' }
+                disabled:
+                  !apiKey.value.trim() ||
+                  (provider.value === 'custom' && (!model.value.trim() || !baseUrl.value.trim())),
+                onClick: () => finish(false)
               },
-              '继续 →'
+              [h('span', '保存并继续'), controlIcon('arrow-right')]
             )
           ])
-        ])
-      }
-
-      return h('section', { class: 'gentorial-preferences', role: props.presentation === 'nav' ? 'dialog' : undefined, 'aria-modal': props.presentation === 'nav' ? 'true' : undefined, 'aria-label': '个性化设置', tabindex: props.presentation === 'nav' ? -1 : undefined, ref: (element) => { dialogElement = element as HTMLElement } }, [
-        header,
-        h('div', { class: 'gentorial-preferences__byok' }, [
-          h('label', { class: 'gentorial-preferences__field' }, [
-            h('span', '提供方'),
-            h(
-              'select',
-              {
-                value: provider.value,
-                onChange: (event: Event) => {
-                  provider.value = (event.currentTarget as HTMLSelectElement).value
-                  const defaults = providerDefaults[provider.value] ?? providerDefaults.custom!
-                  model.value = defaults.model
-                  baseUrl.value = defaults.baseUrl
-                }
-              },
-              [
-                ['openai', 'OpenAI'],
-                ['anthropic', 'Anthropic'],
-                ['google', 'Google'],
-                ['custom', 'OpenAI-compatible']
-              ].map(([value, label]) => h('option', { value }, label))
-            )
-          ]),
-          h('label', { class: 'gentorial-preferences__field' }, [
-            h('span', 'API key'),
-            h('input', {
-              type: 'password',
-              value: apiKey.value,
-              autocomplete: 'off',
-              spellcheck: false,
-              placeholder: '仅保存在当前页面会话内存中',
-              onInput: (event: Event) => {
-                apiKey.value = (event.currentTarget as HTMLInputElement).value
-              }
-            })
-          ]),
-          h('label', { class: 'gentorial-preferences__field' }, [
-            h('span', '模型'),
-            h('input', {
-              type: 'text',
-              value: model.value,
-              spellcheck: false,
-              placeholder: provider.value === 'custom'
-                ? '必填，例如 llama3.2'
-                : providerDefaults[provider.value]?.model,
-              onInput: (event: Event) => {
-                model.value = (event.currentTarget as HTMLInputElement).value
-              }
-            })
-          ]),
-          h('label', { class: 'gentorial-preferences__field gentorial-preferences__field--wide' }, [
-            h('span', 'Base URL'),
-            h('input', {
-              type: 'url',
-              value: baseUrl.value,
-              spellcheck: false,
-              placeholder: providerDefaults[provider.value]?.baseUrl || 'https://example.com/v1',
-              onInput: (event: Event) => {
-                baseUrl.value = (event.currentTarget as HTMLInputElement).value
-              }
-            })
-          ])
-        ]),
-        h(
-          'p',
-          { class: 'gentorial-preferences__notice' },
-          '可跳过。浏览器直连密钥不会写入静态产物、localStorage 或日志。'
-        ),
-        h('div', { class: 'gentorial-preferences__actions' }, [
-          h(
-            'button',
-            {
-              class: 'gentorial-preferences__secondary',
-              type: 'button',
-              onClick: () => finish(true)
-            },
-            '跳过'
-          ),
-          h(
-            'button',
-            {
-              class: 'gentorial-preferences__primary',
-              type: 'button',
-              disabled: !apiKey.value.trim() || (provider.value === 'custom' && (!model.value.trim() || !baseUrl.value.trim())),
-              onClick: () => finish(false)
-            },
-            '保存并继续'
-          )
-        ])
-      ])
+        ]
+      )
     }
 
     function openPreferences(): void {
@@ -792,44 +1019,59 @@ export const GentorialPreferences = defineComponent({
 
     return () => {
       if (props.presentation === 'nav') {
-        const trigger = h('button', {
-          class: 'gentorial-preferences__nav-trigger',
-          type: 'button',
-          title: '个性化设置',
-          'aria-label': '个性化设置',
-          'aria-haspopup': 'dialog',
-          'aria-expanded': open.value,
-          ref: (element) => { triggerElement = element as HTMLButtonElement },
-          onClick: openPreferences
-        }, controlIcon('preferences'))
+        const trigger = h(
+          'button',
+          {
+            class: 'gentorial-preferences__nav-trigger',
+            type: 'button',
+            title: '个性化设置',
+            'aria-label': '个性化设置',
+            'aria-haspopup': 'dialog',
+            'aria-expanded': open.value,
+            ref: (element) => {
+              triggerElement = element as HTMLButtonElement
+            },
+            onClick: openPreferences
+          },
+          controlIcon('preferences')
+        )
 
         return h('span', { class: 'gentorial-preferences__nav-host' }, [
           trigger,
           ...(open.value
-            ? [h(Teleport, { to: 'body' }, h('div', {
-                class: 'gentorial-preferences__overlay',
-                onClick: (event: MouseEvent) => {
-                  if (event.target === event.currentTarget) open.value = false
-                }
-              }, [
-                renderCard(),
-                h('button', {
-                  class: 'gentorial-preferences__close',
-                  type: 'button',
-                  'aria-label': '关闭个性化设置',
-                  onClick: () => { open.value = false }
-                }, '×')
-              ]))]
+            ? [
+                h(
+                  Teleport,
+                  { to: 'body' },
+                  h(
+                    'div',
+                    {
+                      class: 'gentorial-preferences__overlay',
+                      role: 'dialog',
+                      'aria-modal': 'true',
+                      'aria-label': '个性化设置',
+                      onClick: (event: MouseEvent) => {
+                        if (event.target === event.currentTarget) open.value = false
+                      }
+                    },
+                    [renderCard()]
+                  )
+                )
+              ]
             : [])
         ])
       }
 
       if (completed.value) {
-        return h('button', {
-          class: 'gentorial-preferences__trigger',
-          type: 'button',
-          onClick: openPreferences
-        }, '个性化设置')
+        return h(
+          'button',
+          {
+            class: 'gentorial-preferences__trigger',
+            type: 'button',
+            onClick: openPreferences
+          },
+          '个性化设置'
+        )
       }
       return renderCard()
     }

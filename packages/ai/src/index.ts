@@ -1,21 +1,30 @@
 export { createMockGenerator } from './mock.js'
 export type { MockGeneratorOptions } from './mock.js'
-export { createBrowserByokGenerator } from './byok.js'
+export { createBrowserByokGenerator, createProviderGenerator } from './byok.js'
 export type {
   BrowserByokCredentials,
   BrowserByokGeneratorOptions,
-  BrowserByokProvider
+  BrowserByokProvider,
+  Provider,
+  ProviderCredentials,
+  ProviderGeneratorOptions
 } from './byok.js'
 export { createGenerationPipeline, createRemoteGenerator } from './pipeline.js'
 export {
+  createGentorialGenerationCacheKey,
   createGentorialGenerationHandler,
+  createMemoryGenerationCache,
   createGentorialServerGenerator
 } from './server.js'
 export type {
   GentorialGenerationAuthorization,
+  GentorialGenerationCacheOperation,
+  GentorialGenerationCacheOptions,
+  GentorialGenerationCacheStore,
   GentorialGenerationHandlerOptions,
   GentorialGenerationMode,
   GentorialGenerationRequest,
+  GentorialMemoryGenerationCacheOptions,
   GentorialServerGeneratorOptions
 } from './server.js'
 export { compileGenerationPrompt, defaultPromptCompiler } from './prompt.js'

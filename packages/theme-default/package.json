@@ -1,6 +1,6 @@
 {
   "name": "@gentorial/theme-default",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Default VitePress theme integration for Gentorial.",
   "type": "module",
   "sideEffects": [
@@ -20,7 +20,7 @@
     "./style.css": "./style.css"
   },
   "scripts": {
-    "build": "tsup src/index.ts --format esm --sourcemap --clean --external mermaid --external vue --external vitepress --external vitepress/theme && tsc --emitDeclarationOnly",
+    "build": "tsup src/index.ts --format esm --sourcemap --clean --external mermaid --external shiki --external vue --external vitepress --external vitepress/theme && tsc --emitDeclarationOnly",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --root ../.. --config vitest.config.ts packages/theme-default/src",
     "pack:check": "pnpm pack --dry-run"
@@ -35,7 +35,9 @@
     "access": "public"
   },
   "dependencies": {
-    "@gentorial/runtime-vue": "workspace:^"
+    "@fontsource-variable/geist": "^5.2.9",
+    "@gentorial/runtime-vue": "workspace:^",
+    "shiki": "^2.5.0"
   },
   "peerDependencies": {
     "mermaid": "^11.16.0",

@@ -2,6 +2,7 @@ import { defineCourse, type ConceptSpec, type GeneratedLesson, type GenerateSpec
 import { describe, expect, it, vi } from 'vitest'
 import {
   createGentorialGenerationHandler,
+  createMemoryGenerationCache,
   createGentorialServerGenerator,
   type GenerationInput,
   type Generator
@@ -177,5 +178,126 @@ describe('Gentorial server generation adapter', () => {
       }
     }
     await expect(consume()).rejects.toThrow('provider unavailable')
+  })
+
+  it('shares server-managed results for identical course input and learner preferences', async () => {
+    const generateLesson = vi.fn(async () => lesson)
+    const handler = createGentorialGenerationHandler({
+      generator: { generate: generateLesson },
+      cache: {
+        namespace: 'openai:gpt-test:prompt-v1',
+        store: createMemoryGenerationCache()
+      }
+    })
+    const client = createGentorialServerGenerator({
+      endpoint: 'https://tutorial.example/api/generate',
+      fetch: handlerFetch(handler)
+    })
+
+    await expect(client.generate(input)).resolves.toEqual(lesson)
+    await expect(client.generate(input)).resolves.toEqual(lesson)
+
+    expect(generateLesson).toHaveBeenCalledTimes(1)
+  })
+
+  it('separates cache entries when learner preferences differ', async () => {
+    const generateLesson = vi.fn(async () => lesson)
+    const handler = createGentorialGenerationHandler({
+      generator: { generate: generateLesson },
+      cache: {
+        namespace: 'openai:gpt-test:prompt-v1',
+        store: createMemoryGenerationCache()
+      }
+    })
+    const client = createGentorialServerGenerator({
+      endpoint: 'https://tutorial.example/api/generate',
+      fetch: handlerFetch(handler)
+    })
+
+    await client.generate({ ...input, learner: { detail: 'concise', tone: 'formal' } })
+    await client.generate({ ...input, learner: { detail: 'deep', tone: 'formal' } })
+    await client.generate({ ...input, learner: { detail: 'concise', tone: 'formal' } })
+
+    expect(generateLesson).toHaveBeenCalledTimes(2)
+  })
+
+  it('separates shared entries by the complete server generation namespace', async () => {
+    const store = createMemoryGenerationCache()
+    const firstGenerate = vi.fn(async () => lesson)
+    const secondGenerate = vi.fn(async () => lesson)
+    const first = createGentorialGenerationHandler({
+      generator: { generate: firstGenerate },
+      cache: { namespace: 'openai:gpt-a:prompt-v1', store }
+    })
+    const second = createGentorialGenerationHandler({
+      generator: { generate: secondGenerate },
+      cache: { namespace: 'openai:gpt-b:prompt-v1', store }
+    })
+
+    const request = () => new Request('https://tutorial.example/api/generate', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ mode: 'generate', input })
+    })
+    const firstMiss = await first(request())
+    const firstHit = await first(request())
+    const secondMiss = await second(request())
+
+    expect(firstMiss.headers.get('x-gentorial-cache')).toBe('miss')
+    expect(firstHit.headers.get('x-gentorial-cache')).toBe('hit')
+    expect(secondMiss.headers.get('x-gentorial-cache')).toBe('miss')
+    expect(firstGenerate).toHaveBeenCalledTimes(1)
+    expect(secondGenerate).toHaveBeenCalledTimes(1)
+  })
+
+  it('stores completed server streams and replays them without another provider call', async () => {
+    const stream = vi.fn(async function* () {
+      yield '## 标题\n\n'
+      yield '缓存内容'
+    })
+    const handler = createGentorialGenerationHandler({
+      generator: { async generate() { return lesson }, stream },
+      cache: {
+        namespace: 'openai:gpt-test:prompt-v1',
+        store: createMemoryGenerationCache()
+      }
+    })
+    const client = createGentorialServerGenerator({
+      endpoint: 'https://tutorial.example/api/generate',
+      fetch: handlerFetch(handler)
+    })
+
+    const first: string[] = []
+    for await (const chunk of client.stream!(input)) first.push(chunk)
+    const second: string[] = []
+    for await (const chunk of client.stream!(input)) second.push(chunk)
+
+    expect(first.join('')).toBe('## 标题\n\n缓存内容')
+    expect(second).toEqual(['## 标题\n\n缓存内容'])
+    expect(stream).toHaveBeenCalledTimes(1)
+  })
+
+  it('fails open when the shared cache store is unavailable', async () => {
+    const onError = vi.fn()
+    const generateLesson = vi.fn(async () => lesson)
+    const handler = createGentorialGenerationHandler({
+      generator: { generate: generateLesson },
+      cache: {
+        namespace: 'openai:gpt-test:prompt-v1',
+        store: {
+          get() { throw new Error('cache offline') },
+          set() { throw new Error('cache offline') }
+        },
+        onError
+      }
+    })
+    const client = createGentorialServerGenerator({
+      endpoint: 'https://tutorial.example/api/generate',
+      fetch: handlerFetch(handler)
+    })
+
+    await expect(client.generate(input)).resolves.toEqual(lesson)
+    expect(generateLesson).toHaveBeenCalledTimes(1)
+    expect(onError).toHaveBeenCalledTimes(2)
   })
 })

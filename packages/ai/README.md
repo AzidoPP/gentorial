@@ -56,3 +56,54 @@ const generator = createGentorialServerGenerator({
 ```
 
 客户端和 handler 会自动协商 JSON 或 SSE。取消浏览器读取会中止服务端 generator；服务端错误只返回错误消息，不返回堆栈。`authorize` 仅负责端点访问控制，不检查或评价生成内容。
+
+### 服务端统一配置与共享生成缓存
+
+服务端应通过 `createProviderGenerator` 读取环境变量中的统一密钥，并在 handler 上配置共享缓存。缓存键会对完整 `GenerationInput` 做稳定序列化和 SHA-256：课程内容、生成区域、概念锚点、学习者偏好和追问上下文任一变化都会产生新条目。`namespace` 用来标识输入之外的服务端生成配置，必须覆盖提供方、模型、生成参数、提示版本和输出协议版本，但不要放入原始 API Key。
+
+```ts
+import {
+  createGentorialGenerationHandler,
+  createMemoryGenerationCache,
+  createProviderGenerator
+} from '@gentorial/ai'
+
+const provider = createProviderGenerator({
+  provider: 'openai',
+  apiKey: process.env.OPENAI_API_KEY!,
+  model: 'gpt-5.6-terra'
+})
+
+const handleGeneration = createGentorialGenerationHandler({
+  generator: provider,
+  cache: {
+    namespace: 'openai:gpt-5.6-terra:temperature-default:prompt-v1:lesson-v1',
+    store: createMemoryGenerationCache({
+      maxEntries: 10_000,
+      ttlMs: 7 * 24 * 60 * 60 * 1_000
+    })
+  }
+})
+```
+
+内存实现适合单进程或开发环境。生产环境可实现相同的 `GentorialGenerationCacheStore` 接口接入 Redis、KV 或数据库；存储值是 `GeneratedLesson`，而不是最终 HTML。缓存读写失败时 handler 会继续调用模型，`onError` 可接入日志和监控。
+
+客户端必须在运行时边界选择生成器。没有 BYOK 时调用服务端，因而读取和写入共享缓存；学习者启用 BYOK 后直接使用其个人提供方，完全绕过服务端端点和共享缓存：
+
+```ts
+const managed = createGentorialServerGenerator({
+  endpoint: '/api/gentorial/generate'
+})
+
+generate(request, context) {
+  const input = toGenerationInput(request)
+  const active = context.byok
+    ? createBrowserByokGenerator({ ...context.byok, provider: context.byok.provider as BrowserByokProvider })
+    : managed
+
+  return active.stream?.(input, { signal: context.signal })
+    ?? active.generate(input, { signal: context.signal })
+}
+```
+
+响应仍带有 `Cache-Control: no-store`，以禁止浏览器和中间代理保存个性化结果；服务端应用缓存的命中状态通过 `X-Gentorial-Cache: hit | miss | bypass` 暴露，两者互不冲突。

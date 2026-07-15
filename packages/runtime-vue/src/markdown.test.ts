@@ -45,4 +45,48 @@ describe('Gentorial runtime Markdown', () => {
     expect(gentorialMarkdownAsText(source)).toContain('安全文本')
     expect(gentorialMarkdownAsText('包含 **重点** 与 `代码`。')).toBe('包含 重点 与 代码。')
   })
+
+  it('renders raw HTML only when the course explicitly enables it', () => {
+    const inline = nodes(
+      renderGentorialMarkdown('前缀 <mark onclick="run()">原始 HTML</mark> 后缀', {
+        allowUnsafeHtml: true
+      })
+    )[0]!
+    const inlineHtml = nodes(inline.children as VNodeChild[])[0]!
+    expect(inlineHtml.props?.innerHTML).toContain('<mark onclick="run()">原始 HTML</mark>')
+
+    const block = nodes(
+      renderGentorialMarkdown('<section data-generated="true">区块</section>', {
+        allowUnsafeHtml: true
+      })
+    )[0]!
+    expect(block.props?.innerHTML).toContain('<section data-generated="true">区块</section>')
+  })
+
+  it('preserves Markdown table structure and safe column alignment', () => {
+    const rendered = nodes(
+      renderGentorialMarkdown(
+        [
+          '| 记录 | 判断 | 对总分的影响 | 对有效人数的影响 |',
+          '| :--- | :---: | ---: | ---: |',
+          '| 85 | 有效 | +85 | +1 |',
+          '| 缺考 | 不计入 | +0 | +0 |'
+        ].join('\n')
+      )
+    )
+
+    expect(rendered).toHaveLength(1)
+    expect(rendered[0]?.type).toBe('table')
+    const sections = nodes(rendered[0]?.children as VNodeChild[])
+    expect(sections.map((node) => node.type)).toEqual(['thead', 'tbody'])
+    const headerRow = nodes(sections[0]?.children as VNodeChild[])[0]!
+    const headers = nodes(headerRow.children as VNodeChild[])
+    expect(headers).toHaveLength(4)
+    expect(headers[0]?.props?.style).toEqual({ textAlign: 'left' })
+    expect(headers[1]?.props?.style).toEqual({ textAlign: 'center' })
+    expect(headers[2]?.props?.style).toEqual({ textAlign: 'right' })
+    const bodyRows = nodes(sections[1]?.children as VNodeChild[])
+    expect(bodyRows).toHaveLength(2)
+    expect(nodes(bodyRows[0]?.children as VNodeChild[])).toHaveLength(4)
+  })
 })

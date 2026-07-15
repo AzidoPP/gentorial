@@ -51,6 +51,12 @@ export const courseDefinitionSchema = z
         defaultLocale: nonBlankString
       })
       .strict(),
+    rendering: z
+      .object({
+        allowUnsafeHtml: z.boolean()
+      })
+      .strict()
+      .optional(),
     accuracy: z
       .object({
         policies: z.array(nonBlankString),

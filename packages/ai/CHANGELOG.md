@@ -1,5 +1,18 @@
 # @gentorial/ai
 
+## 0.2.0
+
+### Minor Changes
+
+- Add server-managed provider generators and shared generation-result caching keyed by complete course input, learner preferences, and a versioned server generation namespace.
+
+### Patch Changes
+
+- 1bb4bd4: Preserve generated structure by treating browser streams as standard Markdown. Runtime Markdown is incrementally parsed into safe Vue nodes, retains its source through follow-up conversations and copy actions, and delegates Mermaid fences to the default VitePress theme without exposing author-defined custom containers to AI generation. Add a framework-neutral Web Standards server adapter with JSON lessons, SSE Markdown, authorization, error transport, and cancellation propagation.
+- Updated dependencies
+- Updated dependencies [1bb4bd4]
+  - @gentorial/core@0.1.1
+
 ## 0.1.1
 
 ### Patch Changes

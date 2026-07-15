@@ -10,11 +10,13 @@ import {
 import type { Theme } from 'vitepress'
 import { defineComponent, h } from 'vue'
 import DefaultTheme from 'vitepress/theme'
+import { createGentorialCodeBlock, type GentorialCodeBlockOptions } from './code-block.js'
 import { GentorialMermaid } from './mermaid.js'
 
 export type GentorialThemeOptions = {
   extends?: Theme
   enhanceApp?: NonNullable<Theme['enhanceApp']>
+  codeBlock?: GentorialCodeBlockOptions
 }
 
 export function createGentorialTheme(options: GentorialThemeOptions = {}): Theme {
@@ -28,12 +30,14 @@ export function createGentorialTheme(options: GentorialThemeOptions = {}): Theme
       })
     }
   })
+  const GentorialCodeBlock = createGentorialCodeBlock(options.codeBlock)
 
   return {
     extends: baseTheme,
     Layout,
     enhanceApp(context) {
       context.app.component('GentorialConcept', GentorialConcept)
+      context.app.component('GentorialCodeBlock', GentorialCodeBlock)
       context.app.component('GentorialGenerate', GentorialGenerate)
       context.app.component('GentorialGeneratedRegion', GentorialGeneratedRegion)
       context.app.component('GentorialGenerateTrigger', GentorialGenerateTrigger)

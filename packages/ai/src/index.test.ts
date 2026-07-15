@@ -4,6 +4,7 @@ import {
   compileGenerationPrompt,
   createBrowserByokGenerator,
   createMockGenerator,
+  createProviderGenerator,
   type GenerationInput
 } from './index.js'
 
@@ -238,5 +239,33 @@ describe('createBrowserByokGenerator', () => {
     expect(body.stream).toBe(true)
     expect(body.messages[0]?.content).toContain('标准 Markdown')
     expect(body.messages[0]?.content).toContain('不要输出 JSON、HTML、脚本、协议字段或自定义容器')
+  })
+})
+
+describe('createProviderGenerator', () => {
+  it('uses a server-managed Anthropic key without browser-direct headers', async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+      content: [{ type: 'text', text: JSON.stringify({
+        schemaVersion: '1',
+        blocks: [{ type: 'paragraph', text: 'server result' }],
+        grounding: { conceptIds: ['switch-discrete'], sourceIds: ['section-switch'] }
+      }) }]
+    })))
+    const generator = createProviderGenerator({
+      provider: 'anthropic',
+      apiKey: 'server-secret',
+      model: 'server-model'
+    }, { fetch: fetchMock as typeof fetch })
+
+    await generator.generate(input)
+
+    const [, init] = fetchMock.mock.calls[0]!
+    expect((init as RequestInit).headers).toMatchObject({
+      'x-api-key': 'server-secret',
+      'anthropic-version': '2023-06-01'
+    })
+    expect((init as RequestInit).headers).not.toHaveProperty(
+      'anthropic-dangerous-direct-browser-access'
+    )
   })
 })

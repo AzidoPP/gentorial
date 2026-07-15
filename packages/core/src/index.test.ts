@@ -20,6 +20,9 @@ describe('defineCourse', () => {
         mode: 'hybrid',
         defaultLocale: 'zh-CN'
       },
+      rendering: {
+        allowUnsafeHtml: true
+      },
       accuracy: {
         policies: ['概念锚点的结论不可被反转'],
         standards: ['ISO C17']
@@ -27,6 +30,7 @@ describe('defineCourse', () => {
     })
 
     expect(course.id).toBe('c-language')
+    expect(course.rendering.allowUnsafeHtml).toBe(true)
   })
 })
 

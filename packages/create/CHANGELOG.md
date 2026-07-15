@@ -1,5 +1,11 @@
 # @gentorial/create
 
+## 0.1.2
+
+### Patch Changes
+
+- Add an explicit course option and scaffolding prompt for rendering raw AI-generated HTML.
+
 ## 0.1.1
 
 ### Patch Changes

@@ -11,6 +11,9 @@ export default defineCourse({
     mode: 'hybrid',
     defaultLocale: 'zh-CN'
   },
+  rendering: {
+    allowUnsafeHtml: false
+  },
   accuracy: {
     standards: ['ISO C17'],
     policies: [

@@ -10,6 +10,9 @@ export default defineCourse({
     mode: 'hybrid',
     defaultLocale: '__COURSE_LANG__'
   },
+  rendering: {
+    allowUnsafeHtml: __ALLOW_UNSAFE_HTML__
+  },
   accuracy: {
     policies: ['概念锚点的结论不可被反转']
   }

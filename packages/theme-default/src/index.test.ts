@@ -12,6 +12,7 @@ describe('createGentorialTheme', () => {
     theme.enhanceApp?.({ app: { component } } as never)
 
     expect(component).toHaveBeenCalledWith('GentorialConcept', expect.anything())
+    expect(component).toHaveBeenCalledWith('GentorialCodeBlock', expect.anything())
     expect(component).toHaveBeenCalledWith('GentorialGenerate', expect.anything())
     expect(component).toHaveBeenCalledWith('GentorialGeneratedRegion', expect.anything())
     expect(component).toHaveBeenCalledWith('GentorialGenerateTrigger', expect.anything())

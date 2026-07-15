@@ -10,6 +10,7 @@ import course from '../../../course.config.js'
 
 const generator = createMockGenerator()
 const runtime = createGentorialRuntime({
+  allowUnsafeHtml: course.rendering?.allowUnsafeHtml,
   learnerProfile: {
     detail: 'balanced',
     tone: 'conversational',

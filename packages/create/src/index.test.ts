@@ -21,7 +21,8 @@ describe('createGentorialProject', () => {
       cwd,
       targetDir: 'my-course',
       title: '我的课程',
-      lang: 'zh-CN'
+      lang: 'zh-CN',
+      allowUnsafeHtml: true
     })
     const packageSource = await readFile(resolve(result.targetDir, 'package.json'), 'utf8')
     const courseSource = await readFile(resolve(result.targetDir, 'course.config.ts'), 'utf8')
@@ -43,9 +44,11 @@ describe('createGentorialProject', () => {
       }
     })
     expect(courseSource).toContain("title: '我的课程'")
+    expect(courseSource).toContain('allowUnsafeHtml: true')
     expect(themeSource).toContain('createMockGenerator')
     expect(themeSource).toContain('createGentorialRuntime')
     expect(themeSource).toContain('request.conversation')
+    expect(themeSource).toContain('allowUnsafeHtml: course.rendering?.allowUnsafeHtml')
     expect(vitepressSource).toContain("import { defineConfig } from 'vitepress'")
     expect(vitepressSource).toContain('math: true')
     expect(vitepressSource).toContain('config: gentorialMarkdown')

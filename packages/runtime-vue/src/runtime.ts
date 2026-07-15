@@ -62,16 +62,31 @@ export type GentorialGenerationState = {
 export type GentorialRuntimeOptions = {
   learnerProfile?: LearnerProfile
   byokSession?: GentorialByokSession
+  persistence?: GentorialPersistenceOptions
+  allowUnsafeHtml?: boolean
   generate(
     request: RuntimeGenerationRequest,
     context: RuntimeGenerationContext
   ): GeneratedLesson | AsyncIterable<string> | Promise<GeneratedLesson | AsyncIterable<string>>
 }
 
+export type GentorialStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
+
+export type GentorialPersistenceOptions = {
+  key: string
+  storage?: GentorialStorage
+  persistApiKey?: boolean
+}
+
 export type GentorialRuntime = Plugin & {
   readonly generate: GentorialRuntimeOptions['generate']
   readonly learnerProfile: Ref<LearnerProfile>
   readonly byokSession: Ref<GentorialByokSession | undefined>
+  readonly persistence: {
+    readonly enabled: boolean
+    readonly persistApiKey: boolean
+  }
+  readonly allowUnsafeHtml: boolean
   register(registration: GentorialRegistration): () => void
   getState(id: string): GentorialGenerationState
   run(id: string): Promise<void>
@@ -110,6 +125,14 @@ type ActiveRequest = {
   previousBlocks?: LessonBlock[]
   previousMarkdown?: string | undefined
   previousExpanded?: boolean
+}
+
+type PersistedGenerationState = {
+  markdown?: string
+  blocks: LessonBlock[]
+  conversation: LessonConversationTurn[]
+  expanded: boolean
+  baseLesson: GeneratedLesson
 }
 
 const defaultLearnerProfile: LearnerProfile = {
@@ -185,6 +208,100 @@ export function createGentorialRuntime(options: GentorialRuntimeOptions): Gentor
   const byokSession = ref<GentorialByokSession | undefined>(
     options.byokSession ? { ...options.byokSession } : undefined
   )
+  const persistence = options.persistence
+  const persistedGenerations = new Map<string, PersistedGenerationState>()
+  let persistentStorage: GentorialStorage | undefined
+
+  function resolvePersistentStorage(): GentorialStorage | undefined {
+    if (!persistence) return undefined
+    if (persistence.storage) return persistence.storage
+    if (typeof window === 'undefined') return undefined
+    return window.localStorage
+  }
+
+  function restorePreferences(): void {
+    const storage = resolvePersistentStorage()
+    if (!storage || !persistence) return
+    persistentStorage = storage
+
+    try {
+      const raw = storage.getItem(persistence.key)
+      if (!raw) return
+      const saved = JSON.parse(raw) as {
+        schemaVersion?: unknown
+        learnerProfile?: unknown
+        byokSession?: unknown
+        generations?: unknown
+      }
+      if (saved.schemaVersion !== '1') return
+      if (saved.learnerProfile && typeof saved.learnerProfile === 'object') {
+        learnerProfile.value = {
+          ...defaultLearnerProfile,
+          ...(saved.learnerProfile as LearnerProfile)
+        }
+      }
+      if (
+        persistence.persistApiKey &&
+        saved.byokSession &&
+        typeof saved.byokSession === 'object' &&
+        typeof Reflect.get(saved.byokSession, 'provider') === 'string' &&
+        typeof Reflect.get(saved.byokSession, 'apiKey') === 'string'
+      ) {
+        byokSession.value = { ...(saved.byokSession as GentorialByokSession) }
+      }
+      if (saved.generations && typeof saved.generations === 'object') {
+        for (const [id, candidate] of Object.entries(saved.generations)) {
+          if (!candidate || typeof candidate !== 'object') continue
+          const baseLesson = Reflect.get(candidate, 'baseLesson')
+          const blocks = Reflect.get(candidate, 'blocks')
+          const conversation = Reflect.get(candidate, 'conversation')
+          const expanded = Reflect.get(candidate, 'expanded')
+          const markdown = Reflect.get(candidate, 'markdown')
+          if (
+            !baseLesson || typeof baseLesson !== 'object'
+            || !Array.isArray(blocks)
+            || !Array.isArray(conversation)
+            || typeof expanded !== 'boolean'
+            || (markdown !== undefined && typeof markdown !== 'string')
+          ) continue
+          persistedGenerations.set(id, {
+            ...(typeof markdown === 'string' ? { markdown } : {}),
+            blocks: blocks as LessonBlock[],
+            conversation: conversation as LessonConversationTurn[],
+            expanded,
+            baseLesson: baseLesson as GeneratedLesson
+          })
+        }
+      }
+    } catch {
+      storage.removeItem(persistence.key)
+    }
+  }
+
+  function persistRuntimeState(): void {
+    if (!persistence) return
+    const storage = persistentStorage ?? resolvePersistentStorage()
+    if (!storage) return
+    persistentStorage = storage
+
+    try {
+      storage.setItem(
+        persistence.key,
+        JSON.stringify({
+          schemaVersion: '1',
+          learnerProfile: learnerProfile.value,
+          generations: Object.fromEntries(persistedGenerations),
+          ...(persistence.persistApiKey && byokSession.value
+            ? { byokSession: byokSession.value }
+            : {})
+        })
+      )
+    } catch {
+      // Storage can be unavailable in privacy modes; runtime preferences still work in memory.
+    }
+  }
+
+  restorePreferences()
 
   function generationContext(signal: AbortSignal): RuntimeGenerationContext {
     return {
@@ -198,8 +315,30 @@ export function createGentorialRuntime(options: GentorialRuntimeOptions): Gentor
     if (current) return current
 
     const state = createState(id)
+    const saved = persistedGenerations.get(id)
+    if (saved) {
+      state.status = 'success'
+      state.markdown = saved.markdown
+      state.blocks = [...saved.blocks]
+      state.conversation = [...saved.conversation]
+      state.expanded = saved.expanded
+      state.baseLesson = saved.baseLesson
+    }
     states.set(id, state)
     return state
+  }
+
+  function persistGeneration(id: string, state: MutableGenerationState): void {
+    if (!persistence) return
+    if (!state.baseLesson || state.status !== 'success') return
+    persistedGenerations.set(id, {
+      ...(state.markdown !== undefined ? { markdown: state.markdown } : {}),
+      blocks: [...state.blocks],
+      conversation: [...state.conversation],
+      expanded: state.expanded,
+      baseLesson: state.baseLesson
+    })
+    persistRuntimeState()
   }
 
   function nextSequence(id: string): number {
@@ -302,6 +441,7 @@ export function createGentorialRuntime(options: GentorialRuntimeOptions): Gentor
       state.streamingFollowUpMarkdown = undefined
       state.status = 'success'
       state.expanded = true
+      persistGeneration(id, state)
     } catch (error) {
       const active = requests.get(id)
       if (!active || active.sequence !== sequence) return
@@ -374,6 +514,7 @@ export function createGentorialRuntime(options: GentorialRuntimeOptions): Gentor
       state.streamingFollowUpBlocks = []
       state.streamingFollowUpMarkdown = undefined
       state.followUpStatus = 'idle'
+      persistGeneration(id, state)
     } catch (error) {
       const active = followUpRequests.get(id)
       if (!active || active.sequence !== sequence) return
@@ -397,6 +538,11 @@ export function createGentorialRuntime(options: GentorialRuntimeOptions): Gentor
     generate: options.generate,
     learnerProfile,
     byokSession,
+    persistence: {
+      enabled: Boolean(persistence),
+      persistApiKey: Boolean(persistence?.persistApiKey)
+    },
+    allowUnsafeHtml: options.allowUnsafeHtml === true,
     register(registration) {
       const id = registration.generate.id
       if (registrations.has(id)) {
@@ -426,15 +572,20 @@ export function createGentorialRuntime(options: GentorialRuntimeOptions): Gentor
     ask,
     cancelFollowUp,
     setExpanded(id, expanded) {
-      mutableState(id).expanded = expanded
+      const state = mutableState(id)
+      state.expanded = expanded
+      persistGeneration(id, state)
     },
     setLearnerProfile(profile) {
       learnerProfile.value = { ...profile }
+      persistRuntimeState()
     },
     setByokSession(session) {
       byokSession.value = session ? { ...session } : undefined
+      persistRuntimeState()
     },
     install(app: App) {
+      if (!persistentStorage) restorePreferences()
       app.provide(gentorialRuntimeKey, runtime)
     }
   }

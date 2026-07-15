@@ -45,6 +45,7 @@ describe('create-gentorial CLI', () => {
       '--title', 'CLI 课程',
       '--lang', 'zh-CN',
       '--package-manager', 'npm',
+      '--allow-unsafe-html',
       '--no-install',
       '--no-git'
     ])
@@ -53,8 +54,10 @@ describe('create-gentorial CLI', () => {
       name: string
     }
     const readme = await readFile(resolve(target, 'README.md'), 'utf8')
+    const courseSource = await readFile(resolve(target, 'course.config.ts'), 'utf8')
     expect(packageSource.name).toBe('cli-course')
     expect(readme).toContain('npm install')
     expect(readme).toContain('npm run dev')
+    expect(courseSource).toContain('allowUnsafeHtml: true')
   })
 })
