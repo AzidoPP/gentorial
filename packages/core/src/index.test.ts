@@ -34,11 +34,13 @@ describe('generatedLessonSchema', () => {
   it('accepts registered lesson blocks', () => {
     const result = generatedLessonSchema.parse({
       schemaVersion: '1',
+      markdown: '一个包含 **重点** 的讲解。',
       blocks: [{ type: 'paragraph', text: '一个经过约束的讲解。' }],
       grounding: { conceptIds: ['switch-discrete'], sourceIds: ['section-switch'] }
     })
 
     expect(result.blocks).toHaveLength(1)
+    expect(result.markdown).toContain('**重点**')
   })
 
   it('rejects executable or protocol-external output', () => {

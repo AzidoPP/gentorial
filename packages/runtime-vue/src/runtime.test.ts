@@ -71,6 +71,7 @@ describe('createGentorialRuntime', () => {
     await vi.waitFor(() => {
       expect(runtime.getState(spec.id)).toMatchObject({
         status: 'loading',
+        markdown: '第一段',
         blocks: [{ type: 'paragraph', text: '第一段' }]
       })
     })
@@ -79,6 +80,7 @@ describe('createGentorialRuntime', () => {
     await running
     expect(runtime.getState(spec.id)).toMatchObject({
       status: 'success',
+      markdown: '第一段，第二段',
       blocks: [{ type: 'paragraph', text: '第一段，第二段' }]
     })
   })

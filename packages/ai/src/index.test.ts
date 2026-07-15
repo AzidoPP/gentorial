@@ -203,7 +203,7 @@ describe('createBrowserByokGenerator', () => {
     expect((init as RequestInit).body).not.toContain('test-secret')
   })
 
-  it('streams OpenAI-compatible text chunks without waiting for a complete lesson', async () => {
+  it('streams OpenAI-compatible Markdown chunks without custom-container instructions', async () => {
     const sse = [
       'data: {"choices":[{"delta":{"content":"第一段"}}]}',
       '',
@@ -231,6 +231,12 @@ describe('createBrowserByokGenerator', () => {
 
     expect(chunks).toEqual(['第一段', '，第二段'])
     const [, init] = fetchMock.mock.calls[0]!
-    expect(JSON.parse((init as RequestInit).body as string)).toMatchObject({ stream: true })
+    const body = JSON.parse((init as RequestInit).body as string) as {
+      stream: boolean
+      messages: Array<{ content: string }>
+    }
+    expect(body.stream).toBe(true)
+    expect(body.messages[0]?.content).toContain('标准 Markdown')
+    expect(body.messages[0]?.content).toContain('不要输出 JSON、HTML、脚本、协议字段或自定义容器')
   })
 })

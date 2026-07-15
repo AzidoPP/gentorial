@@ -23,6 +23,24 @@ import {
   gentorialRuntimeKey,
   type GentorialGenerationStatus
 } from './runtime.js'
+import { gentorialMarkdownAsText, renderGentorialMarkdown } from './markdown.js'
+
+export const GentorialMarkdownRenderer = defineComponent({
+  name: 'GentorialMarkdownRenderer',
+  props: {
+    source: {
+      type: String,
+      required: true
+    }
+  },
+  setup(props) {
+    return () => h(
+      'div',
+      { class: 'gentorial-markdown' },
+      renderGentorialMarkdown(props.source)
+    )
+  }
+})
 
 function renderBlock(block: LessonBlock, key: number): VNodeChild {
   switch (block.type) {
@@ -70,13 +88,19 @@ function renderBlock(block: LessonBlock, key: number): VNodeChild {
 export const LessonBlockRenderer = defineComponent({
   name: 'LessonBlockRenderer',
   props: {
+    markdown: {
+      type: String,
+      required: false
+    },
     blocks: {
       type: Array as PropType<readonly LessonBlock[]>,
       required: true
     }
   },
   setup(props) {
-    return () => h('div', { class: 'gentorial-lesson-blocks' }, props.blocks.map(renderBlock))
+    return () => props.markdown
+      ? h(GentorialMarkdownRenderer, { source: props.markdown })
+      : h('div', { class: 'gentorial-lesson-blocks' }, props.blocks.map(renderBlock))
   }
 })
 
@@ -217,10 +241,16 @@ export const GentorialGenerateTrigger = defineComponent({
 
     async function copy(format: 'text' | 'markdown'): Promise<void> {
       if (!state.value || typeof navigator === 'undefined' || !navigator.clipboard) return
-      const assistantBlocks = state.value.conversation.flatMap((turn) =>
-        turn.role === 'assistant' ? turn.lesson.blocks : []
-      )
-      await navigator.clipboard.writeText(blocksAsText([...state.value.blocks, ...assistantBlocks], format === 'markdown'))
+      const sources = [
+        state.value.markdown ?? blocksAsText(state.value.blocks, true),
+        ...state.value.conversation.flatMap((turn) => turn.role === 'assistant'
+          ? [turn.lesson.markdown ?? blocksAsText(turn.lesson.blocks, true)]
+          : [])
+      ]
+      const markdown = sources.filter(Boolean).join('\n\n')
+      await navigator.clipboard.writeText(format === 'markdown'
+        ? markdown
+        : gentorialMarkdownAsText(markdown))
       copied.value = format
       window.setTimeout(() => { copied.value = undefined }, 1200)
     }
@@ -366,11 +396,21 @@ export const GentorialGeneratedRegion = defineComponent({
       const statusId = `${inputId}-status`
       const assistantLessons = current.conversation.flatMap((turn, index) =>
         turn.role === 'assistant'
-          ? [h(LessonBlockRenderer, { key: `assistant-${index}`, blocks: turn.lesson.blocks })]
+          ? [h(LessonBlockRenderer, {
+              key: `assistant-${index}`,
+              blocks: turn.lesson.blocks,
+              ...(turn.lesson.markdown ? { markdown: turn.lesson.markdown } : {})
+            })]
           : []
       )
       const streamingFollowUp = current.streamingFollowUpBlocks.length > 0
-        ? [h(LessonBlockRenderer, { key: 'assistant-stream', blocks: current.streamingFollowUpBlocks })]
+        ? [h(LessonBlockRenderer, {
+            key: 'assistant-stream',
+            blocks: current.streamingFollowUpBlocks,
+            ...(current.streamingFollowUpMarkdown
+              ? { markdown: current.streamingFollowUpMarkdown }
+              : {})
+          })]
         : []
       const hiddenStyle = {
         position: 'absolute',
@@ -399,7 +439,11 @@ export const GentorialGeneratedRegion = defineComponent({
             : undefined
         },
         [
-          h(LessonBlockRenderer, { key: 'base', blocks: current.blocks }),
+          h(LessonBlockRenderer, {
+            key: 'base',
+            blocks: current.blocks,
+            ...(current.markdown ? { markdown: current.markdown } : {})
+          }),
           ...assistantLessons,
           ...streamingFollowUp,
           ...(current.followUpError

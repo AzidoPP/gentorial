@@ -47,6 +47,7 @@ export type GentorialFollowUpStatus = 'idle' | 'loading' | 'error'
 export type GentorialGenerationState = {
   readonly id: string
   readonly status: GentorialGenerationStatus
+  readonly markdown: string | undefined
   readonly blocks: readonly LessonBlock[]
   readonly fallback: readonly LessonBlock[]
   readonly error: string | undefined
@@ -54,6 +55,7 @@ export type GentorialGenerationState = {
   readonly followUpStatus: GentorialFollowUpStatus
   readonly followUpError: string | undefined
   readonly streamingFollowUpBlocks: readonly LessonBlock[]
+  readonly streamingFollowUpMarkdown: string | undefined
   readonly expanded: boolean
 }
 
@@ -84,6 +86,7 @@ export type GentorialRuntime = Plugin & {
 type MutableGenerationState = {
   id: string
   status: GentorialGenerationStatus
+  markdown: string | undefined
   blocks: LessonBlock[]
   fallback: LessonBlock[]
   error: string | undefined
@@ -91,6 +94,7 @@ type MutableGenerationState = {
   followUpStatus: GentorialFollowUpStatus
   followUpError: string | undefined
   streamingFollowUpBlocks: LessonBlock[]
+  streamingFollowUpMarkdown: string | undefined
   expanded: boolean
   baseLesson: GeneratedLesson | undefined
 }
@@ -104,6 +108,7 @@ type ActiveRequest = {
   controller: AbortController
   sequence: number
   previousBlocks?: LessonBlock[]
+  previousMarkdown?: string | undefined
   previousExpanded?: boolean
 }
 
@@ -119,6 +124,7 @@ function createState(id: string): MutableGenerationState {
   return reactive({
     id,
     status: 'idle' as const,
+    markdown: undefined,
     blocks: [],
     fallback: [],
     error: undefined,
@@ -126,6 +132,7 @@ function createState(id: string): MutableGenerationState {
     followUpStatus: 'idle' as const,
     followUpError: undefined,
     streamingFollowUpBlocks: [],
+    streamingFollowUpMarkdown: undefined,
     expanded: false,
     baseLesson: undefined
   })
@@ -155,6 +162,7 @@ async function receiveStream(
 
   return {
     schemaVersion: '1',
+    markdown: text,
     blocks: [{ type: 'paragraph', text }],
     grounding: {
       conceptIds: [...request.generate.concepts],
@@ -216,6 +224,7 @@ export function createGentorialRuntime(options: GentorialRuntimeOptions): Gentor
 
     const state = mutableState(id)
     if (active.previousBlocks) state.blocks = active.previousBlocks
+    state.markdown = active.previousMarkdown
     if (active.previousExpanded !== undefined) state.expanded = active.previousExpanded
     state.error = undefined
     state.status = state.blocks.length > 0 ? 'success' : 'idle'
@@ -233,6 +242,7 @@ export function createGentorialRuntime(options: GentorialRuntimeOptions): Gentor
     state.followUpStatus = 'idle'
     state.followUpError = undefined
     state.streamingFollowUpBlocks = []
+    state.streamingFollowUpMarkdown = undefined
   }
 
   async function run(id: string): Promise<void> {
@@ -252,6 +262,7 @@ export function createGentorialRuntime(options: GentorialRuntimeOptions): Gentor
       controller,
       sequence,
       previousBlocks: [...state.blocks],
+      previousMarkdown: state.markdown,
       previousExpanded: state.expanded
     })
     state.status = 'loading'
@@ -271,6 +282,7 @@ export function createGentorialRuntime(options: GentorialRuntimeOptions): Gentor
         ? await receiveStream(value, request, (text) => {
           const active = requests.get(id)
           if (!active || active.sequence !== sequence || controller.signal.aborted) return
+          state.markdown = text
           state.blocks = [{ type: 'paragraph', text }]
           state.expanded = true
         })
@@ -281,11 +293,13 @@ export function createGentorialRuntime(options: GentorialRuntimeOptions): Gentor
       requests.delete(id)
       cancelFollowUp(id)
       state.baseLesson = lesson
+      state.markdown = lesson.markdown
       state.blocks = [...lesson.blocks]
       state.conversation = []
       state.followUpStatus = 'idle'
       state.followUpError = undefined
       state.streamingFollowUpBlocks = []
+      state.streamingFollowUpMarkdown = undefined
       state.status = 'success'
       state.expanded = true
     } catch (error) {
@@ -299,6 +313,7 @@ export function createGentorialRuntime(options: GentorialRuntimeOptions): Gentor
       }
 
       if (active.previousBlocks) state.blocks = active.previousBlocks
+      state.markdown = active.previousMarkdown
       if (active.previousExpanded !== undefined) state.expanded = active.previousExpanded
       state.error = errorMessage(error)
       state.status = 'error'
@@ -326,6 +341,7 @@ export function createGentorialRuntime(options: GentorialRuntimeOptions): Gentor
     state.followUpStatus = 'loading'
     state.followUpError = undefined
     state.streamingFollowUpBlocks = []
+    state.streamingFollowUpMarkdown = undefined
 
     const selectedLearner = registration.learner ?? learnerProfile.value
     const request: RuntimeGenerationRequest = {
@@ -342,6 +358,7 @@ export function createGentorialRuntime(options: GentorialRuntimeOptions): Gentor
         ? await receiveStream(value, request, (text) => {
           const active = followUpRequests.get(id)
           if (!active || active.sequence !== sequence || controller.signal.aborted) return
+          state.streamingFollowUpMarkdown = text
           state.streamingFollowUpBlocks = [{ type: 'paragraph', text }]
         })
         : value
@@ -355,6 +372,7 @@ export function createGentorialRuntime(options: GentorialRuntimeOptions): Gentor
         { role: 'assistant', lesson }
       ]
       state.streamingFollowUpBlocks = []
+      state.streamingFollowUpMarkdown = undefined
       state.followUpStatus = 'idle'
     } catch (error) {
       const active = followUpRequests.get(id)
@@ -363,6 +381,7 @@ export function createGentorialRuntime(options: GentorialRuntimeOptions): Gentor
       followUpRequests.delete(id)
       if (controller.signal.aborted) {
         state.streamingFollowUpBlocks = []
+        state.streamingFollowUpMarkdown = undefined
         state.followUpStatus = 'idle'
         return
       }
@@ -370,6 +389,7 @@ export function createGentorialRuntime(options: GentorialRuntimeOptions): Gentor
       state.followUpStatus = 'error'
       state.followUpError = errorMessage(error)
       state.streamingFollowUpBlocks = []
+      state.streamingFollowUpMarkdown = undefined
     }
   }
 

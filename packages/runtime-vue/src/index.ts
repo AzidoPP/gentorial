@@ -3,6 +3,7 @@ export {
   GentorialGenerate,
   GentorialGeneratedRegion,
   GentorialGenerateTrigger,
+  GentorialMarkdownRenderer,
   GentorialPreferences,
   LessonBlockRenderer
 } from './components.js'

@@ -189,6 +189,7 @@ export const generatedLessonSchema = z
   .object({
     schemaVersion: z.literal('1'),
     title: nonBlankString.optional(),
+    markdown: nonBlankString.optional(),
     blocks: z.array(lessonBlockSchema).min(1),
     grounding: z
       .object({

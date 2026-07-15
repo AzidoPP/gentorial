@@ -7,6 +7,17 @@ export type {
   BrowserByokProvider
 } from './byok.js'
 export { createGenerationPipeline, createRemoteGenerator } from './pipeline.js'
+export {
+  createGentorialGenerationHandler,
+  createGentorialServerGenerator
+} from './server.js'
+export type {
+  GentorialGenerationAuthorization,
+  GentorialGenerationHandlerOptions,
+  GentorialGenerationMode,
+  GentorialGenerationRequest,
+  GentorialServerGeneratorOptions
+} from './server.js'
 export { compileGenerationPrompt, defaultPromptCompiler } from './prompt.js'
 export type { LearnerProfile, LessonConversationTurn } from '@gentorial/core'
 export type {

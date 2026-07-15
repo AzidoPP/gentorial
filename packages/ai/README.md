@@ -24,4 +24,35 @@ const generator = createBrowserByokGenerator({
 })
 ```
 
-生成器只接收调用方当前内存中的密钥。`generate()` 返回结构化结果；`stream()` 使用提供方的 SSE 接口逐步返回纯文本。浏览器直连适合学习者明确启用的 BYOK；课程作者的生产密钥应继续放在服务端或本地中继。
+生成器只接收调用方当前内存中的密钥。`generate()` 返回结构化结果；`stream()` 使用提供方的 SSE 接口逐步返回标准 Markdown。生成提示不允许 HTML、脚本或作者自定义容器。浏览器直连适合学习者明确启用的 BYOK；课程作者的生产密钥应继续放在服务端或本地中继。
+
+## 服务端生成
+
+`createGentorialGenerationHandler` 把任意 `Generator` 暴露为基于 Web Standards `Request` / `Response` 的服务端端点。普通生成返回 JSON `GeneratedLesson`，流式生成返回统一的 SSE Markdown 事件；handler 不绑定 Express、Hono、Bun、Deno 或特定托管平台。
+
+```ts
+import { createGentorialGenerationHandler } from '@gentorial/ai'
+
+const handleGeneration = createGentorialGenerationHandler({
+  generator: providerGenerator,
+  authorize(request) {
+    return request.headers.get('authorization') === `Bearer ${process.env.GENTORIAL_TOKEN}`
+  }
+})
+
+// 在 Web Standard server、worker 或框架路由中：
+const response = await handleGeneration(request)
+```
+
+教程客户端只需要指向该端点，密钥和提供方配置不会进入浏览器：
+
+```ts
+import { createGentorialServerGenerator } from '@gentorial/ai'
+
+const generator = createGentorialServerGenerator({
+  endpoint: '/api/gentorial/generate',
+  headers: () => ({ authorization: `Bearer ${currentSessionToken}` })
+})
+```
+
+客户端和 handler 会自动协商 JSON 或 SSE。取消浏览器读取会中止服务端 generator；服务端错误只返回错误消息，不返回堆栈。`authorize` 仅负责端点访问控制，不检查或评价生成内容。

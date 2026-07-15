@@ -290,7 +290,8 @@ function streamingPrompt(input: Parameters<Generator['generate']>[0]): CompiledP
     system: [
       '你是 Gentorial 的课程讲解助手。',
       '遵守输入中的课程范围、概念原文、准确性策略和学习者偏好。',
-      '直接输出适合展示给学习者的纯文本正文；不要输出 JSON、HTML、脚本、标题前缀或协议字段。'
+      '直接输出适合 VitePress 展示的标准 Markdown 正文；不要输出 JSON、HTML、脚本、协议字段或自定义容器。',
+      '可以使用段落、标题、列表、引用、链接、强调、行内代码和代码围栏。图示仅使用 mermaid 代码围栏。'
     ].join('\n'),
     input: prompt.input
   }

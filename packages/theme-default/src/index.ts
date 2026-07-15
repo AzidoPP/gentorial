@@ -3,6 +3,7 @@ import {
   GentorialGenerate,
   GentorialGeneratedRegion,
   GentorialGenerateTrigger,
+  GentorialMarkdownRenderer,
   GentorialPreferences,
   LessonBlockRenderer
 } from '@gentorial/runtime-vue'
@@ -36,6 +37,7 @@ export function createGentorialTheme(options: GentorialThemeOptions = {}): Theme
       context.app.component('GentorialGenerate', GentorialGenerate)
       context.app.component('GentorialGeneratedRegion', GentorialGeneratedRegion)
       context.app.component('GentorialGenerateTrigger', GentorialGenerateTrigger)
+      context.app.component('GentorialMarkdownRenderer', GentorialMarkdownRenderer)
       context.app.component('GentorialPreferences', GentorialPreferences)
       context.app.component('GentorialMermaid', GentorialMermaid)
       context.app.component('LessonBlockRenderer', LessonBlockRenderer)
