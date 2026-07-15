@@ -22,6 +22,7 @@ export type BrowserByokCredentials = ProviderCredentials
 
 export type ProviderGeneratorOptions = {
   fetch?: typeof globalThis.fetch
+  maxOutputTokens?: number
 }
 export type BrowserByokGeneratorOptions = ProviderGeneratorOptions
 
@@ -82,7 +83,8 @@ function responseText(value: unknown, provider: BrowserByokProvider): string {
 
 function createAdapter(
   credentials: ProviderCredentials,
-  browserDirect: boolean
+  browserDirect: boolean,
+  maxOutputTokens: number
 ): ProviderAdapter<BrowserRequest, unknown> {
   const provider = credentials.provider
   const apiKey = credentials.apiKey.trim()
@@ -106,7 +108,7 @@ function createAdapter(
           },
           body: {
             model,
-            max_tokens: 8192,
+            max_tokens: maxOutputTokens,
             system: prompt.system,
             messages: [{ role: 'user', content: prompt.input }]
           }
@@ -135,7 +137,10 @@ function createAdapter(
           body: {
             systemInstruction: { parts: [{ text: prompt.system }] },
             contents: [{ role: 'user', parts: [{ text: prompt.input }] }],
-            generationConfig: { responseMimeType: 'application/json' }
+            generationConfig: {
+              responseMimeType: 'application/json',
+              maxOutputTokens
+            }
           }
         }
       },
@@ -165,7 +170,10 @@ function createAdapter(
             { role: 'system', content: prompt.system },
             { role: 'user', content: prompt.input }
           ],
-          response_format: { type: 'json_object' }
+          response_format: { type: 'json_object' },
+          ...(provider === 'custom'
+            ? { max_tokens: maxOutputTokens }
+            : { max_completion_tokens: maxOutputTokens })
         }
       }
     },
@@ -282,8 +290,13 @@ function streamingRequest(request: BrowserRequest, provider: BrowserByokProvider
   if (provider === 'google') {
     const url = request.url.replace(/:generateContent$/u, ':streamGenerateContent')
     const separator = url.includes('?') ? '&' : '?'
-    const { generationConfig: _generationConfig, ...rest } = body
-    return { ...request, url: `${url}${separator}alt=sse`, body: rest }
+    const generationConfig = body.generationConfig as Record<string, unknown> | undefined
+    const { responseMimeType: _responseMimeType, ...streamGenerationConfig } = generationConfig ?? {}
+    return {
+      ...request,
+      url: `${url}${separator}alt=sse`,
+      body: { ...body, generationConfig: streamGenerationConfig }
+    }
   }
   const { response_format: _responseFormat, ...rest } = body
   return { ...request, body: { ...rest, stream: true } }
@@ -310,7 +323,11 @@ function createConfiguredProviderGenerator(
 ): Generator {
   const fetchImplementation = options.fetch ?? globalThis.fetch
   if (!fetchImplementation) throw new Error('当前环境不支持 fetch')
-  const adapter = createAdapter(credentials, browserDirect)
+  const maxOutputTokens = typeof options.maxOutputTokens === 'number'
+    && Number.isFinite(options.maxOutputTokens)
+    ? Math.max(1, Math.floor(options.maxOutputTokens))
+    : 8192
+  const adapter = createAdapter(credentials, browserDirect, maxOutputTokens)
   const generator = createGenerationPipeline({
     adapter,
     transport: createBrowserTransport(fetchImplementation)

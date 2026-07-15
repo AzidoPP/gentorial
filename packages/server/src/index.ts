@@ -7,11 +7,12 @@ import {
   type GentorialGenerationCacheOperation,
   type GentorialGenerationCacheOptions,
   type GentorialGenerationCacheStore,
+  type GentorialGenerationLimits,
   type GentorialMemoryGenerationCacheOptions,
   type ProviderCredentials,
   type ProviderGeneratorOptions
 } from '@gentorial/ai'
-import type { GeneratedLesson } from '@gentorial/core'
+import type { CourseManifest, GeneratedLesson } from '@gentorial/core'
 import { createHash, randomUUID } from 'node:crypto'
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
@@ -32,6 +33,8 @@ export type GentorialServerCacheOptions = {
 }
 
 export type GentorialServerOptions = GentorialServerSource & {
+  /** Server-owned course manifests used to rebuild every managed generation input. */
+  manifests: CourseManifest | readonly CourseManifest[]
   /**
    * Versioned identity of provider, model, generation parameters, prompt, and
    * output protocol. Never include the raw API key.
@@ -40,6 +43,7 @@ export type GentorialServerOptions = GentorialServerSource & {
   cache?: GentorialServerCacheOptions | false
   authorize?: GentorialGenerationAuthorization
   headers?: HeadersInit
+  limits?: GentorialGenerationLimits | false
 }
 
 export type GentorialServer = {
@@ -141,8 +145,10 @@ export function createGentorialServer(options: GentorialServerOptions): Gentoria
     : options.cache?.store ?? createMemoryGenerationCache(options.cache?.memory)
   const handle = createGentorialGenerationHandler({
     generator,
+    manifests: options.manifests,
     ...(options.authorize ? { authorize: options.authorize } : {}),
     ...(options.headers ? { headers: options.headers } : {}),
+    ...(options.limits !== undefined ? { limits: options.limits } : {}),
     ...(cache
       ? {
           cache: {
@@ -159,6 +165,7 @@ export function createGentorialServer(options: GentorialServerOptions): Gentoria
 }
 
 export {
+  createGentorialGenerationDefinitionHash,
   createGentorialGenerationCacheKey,
   createGentorialServerGenerator,
   createMemoryGenerationCache
@@ -170,6 +177,7 @@ export type {
   GentorialGenerationCacheOperation,
   GentorialGenerationCacheOptions,
   GentorialGenerationCacheStore,
+  GentorialGenerationLimits,
   GentorialMemoryGenerationCacheOptions,
   Provider,
   ProviderCredentials,

@@ -44,6 +44,14 @@ export type GentorialRegistration = RuntimeGenerationRequest & {
 export type GentorialGenerationStatus = 'idle' | 'loading' | 'success' | 'error'
 export type GentorialFollowUpStatus = 'idle' | 'loading' | 'error'
 
+export type GentorialConversationNode = {
+  readonly id: string
+  readonly parentId?: string
+  readonly question?: string
+  readonly lesson: GeneratedLesson
+  readonly createdAt: number
+}
+
 export type GentorialGenerationState = {
   readonly id: string
   readonly status: GentorialGenerationStatus
@@ -52,6 +60,9 @@ export type GentorialGenerationState = {
   readonly fallback: readonly LessonBlock[]
   readonly error: string | undefined
   readonly conversation: readonly LessonConversationTurn[]
+  readonly conversationNodes: readonly GentorialConversationNode[]
+  readonly rootConversationNodeId: string | undefined
+  readonly activeConversationNodeId: string | undefined
   readonly followUpStatus: GentorialFollowUpStatus
   readonly followUpError: string | undefined
   readonly streamingFollowUpBlocks: readonly LessonBlock[]
@@ -63,6 +74,8 @@ export type GentorialRuntimeOptions = {
   learnerProfile?: LearnerProfile
   byokSession?: GentorialByokSession
   persistence?: GentorialPersistenceOptions
+  /** Set to false to disable the browser-side guard. Managed servers enforce their own limits. */
+  contextBudget?: GentorialContextBudget | false
   allowUnsafeHtml?: boolean
   generate(
     request: RuntimeGenerationRequest,
@@ -76,6 +89,13 @@ export type GentorialPersistenceOptions = {
   key: string
   storage?: GentorialStorage
   persistApiKey?: boolean
+}
+
+export type GentorialContextBudget = {
+  /** Maximum serialized characters in the full root-to-active-node conversation. */
+  maxCharacters?: number
+  /** Maximum completed follow-ups on the active path. */
+  maxFollowUps?: number
 }
 
 export type GentorialRuntime = Plugin & {
@@ -92,6 +112,7 @@ export type GentorialRuntime = Plugin & {
   run(id: string): Promise<void>
   cancel(id: string): void
   ask(id: string, question: string): Promise<void>
+  selectConversationNode(id: string, nodeId: string): void
   cancelFollowUp(id: string): void
   setExpanded(id: string, expanded: boolean): void
   setLearnerProfile(profile: LearnerProfile): void
@@ -106,6 +127,9 @@ type MutableGenerationState = {
   fallback: LessonBlock[]
   error: string | undefined
   conversation: LessonConversationTurn[]
+  conversationNodes: GentorialConversationNode[]
+  rootConversationNodeId: string | undefined
+  activeConversationNodeId: string | undefined
   followUpStatus: GentorialFollowUpStatus
   followUpError: string | undefined
   streamingFollowUpBlocks: LessonBlock[]
@@ -131,6 +155,9 @@ type PersistedGenerationState = {
   markdown?: string
   blocks: LessonBlock[]
   conversation: LessonConversationTurn[]
+  conversationNodes: GentorialConversationNode[]
+  rootConversationNodeId: string
+  activeConversationNodeId: string
   expanded: boolean
   baseLesson: GeneratedLesson
 }
@@ -152,6 +179,9 @@ function createState(id: string): MutableGenerationState {
     fallback: [],
     error: undefined,
     conversation: [],
+    conversationNodes: [],
+    rootConversationNodeId: undefined,
+    activeConversationNodeId: undefined,
     followUpStatus: 'idle' as const,
     followUpError: undefined,
     streamingFollowUpBlocks: [],
@@ -161,8 +191,81 @@ function createState(id: string): MutableGenerationState {
   })
 }
 
+function rootNodeId(id: string): string {
+  return `${id}:root`
+}
+
+function conversationForNode(
+  nodes: readonly GentorialConversationNode[],
+  nodeId: string | undefined
+): LessonConversationTurn[] {
+  if (!nodeId) return []
+  const byId = new Map(nodes.map((node) => [node.id, node]))
+  const path: GentorialConversationNode[] = []
+  const visited = new Set<string>()
+  let current = byId.get(nodeId)
+
+  while (current && !visited.has(current.id)) {
+    visited.add(current.id)
+    path.unshift(current)
+    current = current.parentId ? byId.get(current.parentId) : undefined
+  }
+
+  return path.flatMap((node) =>
+    node.parentId && node.question
+      ? [
+          { role: 'user', content: node.question } as const,
+          { role: 'assistant', lesson: node.lesson } as const
+        ]
+      : []
+  )
+}
+
+function treeFromLinearConversation(
+  id: string,
+  baseLesson: GeneratedLesson,
+  conversation: readonly LessonConversationTurn[]
+): {
+  nodes: GentorialConversationNode[]
+  rootId: string
+  activeId: string
+} {
+  const rootId = rootNodeId(id)
+  const nodes: GentorialConversationNode[] = [
+    { id: rootId, lesson: baseLesson, createdAt: 0 }
+  ]
+  let parentId = rootId
+  let question: string | undefined
+  let sequence = 0
+
+  for (const turn of conversation) {
+    if (turn.role === 'user') {
+      question = turn.content
+    } else if (question) {
+      const nodeId = `${id}:node:${++sequence}`
+      nodes.push({
+        id: nodeId,
+        parentId,
+        question,
+        lesson: turn.lesson,
+        createdAt: sequence
+      })
+      parentId = nodeId
+      question = undefined
+    }
+  }
+
+  return { nodes, rootId, activeId: parentId }
+}
+
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
+}
+
+function normalizedLimit(value: number | undefined, fallback: number, minimum = 1): number {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Math.max(minimum, Math.floor(value))
+    : fallback
 }
 
 function isAsyncIterable(value: unknown): value is AsyncIterable<string> {
@@ -211,6 +314,12 @@ export function createGentorialRuntime(options: GentorialRuntimeOptions): Gentor
   const persistence = options.persistence
   const persistedGenerations = new Map<string, PersistedGenerationState>()
   let persistentStorage: GentorialStorage | undefined
+  const contextBudget = options.contextBudget === false
+    ? undefined
+    : {
+        maxCharacters: normalizedLimit(options.contextBudget?.maxCharacters, 120_000),
+        maxFollowUps: normalizedLimit(options.contextBudget?.maxFollowUps, 20, 0)
+      }
 
   function resolvePersistentStorage(): GentorialStorage | undefined {
     if (!persistence) return undefined
@@ -255,6 +364,9 @@ export function createGentorialRuntime(options: GentorialRuntimeOptions): Gentor
           const baseLesson = Reflect.get(candidate, 'baseLesson')
           const blocks = Reflect.get(candidate, 'blocks')
           const conversation = Reflect.get(candidate, 'conversation')
+          const conversationNodes = Reflect.get(candidate, 'conversationNodes')
+          const rootConversationNodeId = Reflect.get(candidate, 'rootConversationNodeId')
+          const activeConversationNodeId = Reflect.get(candidate, 'activeConversationNodeId')
           const expanded = Reflect.get(candidate, 'expanded')
           const markdown = Reflect.get(candidate, 'markdown')
           if (
@@ -268,6 +380,17 @@ export function createGentorialRuntime(options: GentorialRuntimeOptions): Gentor
             ...(typeof markdown === 'string' ? { markdown } : {}),
             blocks: blocks as LessonBlock[],
             conversation: conversation as LessonConversationTurn[],
+            conversationNodes: Array.isArray(conversationNodes)
+              ? conversationNodes as GentorialConversationNode[]
+              : [],
+            rootConversationNodeId:
+              typeof rootConversationNodeId === 'string'
+                ? rootConversationNodeId
+                : rootNodeId(id),
+            activeConversationNodeId:
+              typeof activeConversationNodeId === 'string'
+                ? activeConversationNodeId
+                : rootNodeId(id),
             expanded,
             baseLesson: baseLesson as GeneratedLesson
           })
@@ -317,10 +440,20 @@ export function createGentorialRuntime(options: GentorialRuntimeOptions): Gentor
     const state = createState(id)
     const saved = persistedGenerations.get(id)
     if (saved) {
+      const restoredTree = saved.conversationNodes.length > 0
+        ? {
+            nodes: saved.conversationNodes,
+            rootId: saved.rootConversationNodeId,
+            activeId: saved.activeConversationNodeId
+          }
+        : treeFromLinearConversation(id, saved.baseLesson, saved.conversation)
       state.status = 'success'
       state.markdown = saved.markdown
       state.blocks = [...saved.blocks]
-      state.conversation = [...saved.conversation]
+      state.conversationNodes = [...restoredTree.nodes]
+      state.rootConversationNodeId = restoredTree.rootId
+      state.activeConversationNodeId = restoredTree.activeId
+      state.conversation = conversationForNode(restoredTree.nodes, restoredTree.activeId)
       state.expanded = saved.expanded
       state.baseLesson = saved.baseLesson
     }
@@ -330,11 +463,19 @@ export function createGentorialRuntime(options: GentorialRuntimeOptions): Gentor
 
   function persistGeneration(id: string, state: MutableGenerationState): void {
     if (!persistence) return
-    if (!state.baseLesson || state.status !== 'success') return
+    if (
+      !state.baseLesson
+      || state.status !== 'success'
+      || !state.rootConversationNodeId
+      || !state.activeConversationNodeId
+    ) return
     persistedGenerations.set(id, {
       ...(state.markdown !== undefined ? { markdown: state.markdown } : {}),
       blocks: [...state.blocks],
       conversation: [...state.conversation],
+      conversationNodes: state.conversationNodes.map((node) => ({ ...node })),
+      rootConversationNodeId: state.rootConversationNodeId,
+      activeConversationNodeId: state.activeConversationNodeId,
       expanded: state.expanded,
       baseLesson: state.baseLesson
     })
@@ -435,6 +576,10 @@ export function createGentorialRuntime(options: GentorialRuntimeOptions): Gentor
       state.markdown = lesson.markdown
       state.blocks = [...lesson.blocks]
       state.conversation = []
+      const rootId = rootNodeId(id)
+      state.conversationNodes = [{ id: rootId, lesson, createdAt: Date.now() }]
+      state.rootConversationNodeId = rootId
+      state.activeConversationNodeId = rootId
       state.followUpStatus = 'idle'
       state.followUpError = undefined
       state.streamingFollowUpBlocks = []
@@ -470,12 +615,31 @@ export function createGentorialRuntime(options: GentorialRuntimeOptions): Gentor
     cancelFollowUp(id)
     const sequence = nextFollowUpSequence(id)
     const controller = new AbortController()
+    const parentId = state.activeConversationNodeId
+    if (!parentId) return
     const userTurn: LessonConversationTurn = { role: 'user', content }
     const conversation: LessonConversationTurn[] = [
       { role: 'assistant', lesson: state.baseLesson },
       ...state.conversation,
       userTurn
     ]
+
+    if (contextBudget) {
+      const followUps = conversation.filter((turn) => turn.role === 'user').length
+      const characters = JSON.stringify(conversation).length
+      const violation = followUps > contextBudget.maxFollowUps
+        ? `当前学习路径最多允许 ${contextBudget.maxFollowUps} 次追问`
+        : characters > contextBudget.maxCharacters
+          ? `当前学习路径上下文超过 ${contextBudget.maxCharacters} 个字符的限制`
+          : undefined
+      if (violation) {
+        state.followUpStatus = 'error'
+        state.followUpError = violation
+        state.streamingFollowUpBlocks = []
+        state.streamingFollowUpMarkdown = undefined
+        return
+      }
+    }
 
     followUpRequests.set(id, { controller, sequence })
     state.followUpStatus = 'loading'
@@ -506,11 +670,23 @@ export function createGentorialRuntime(options: GentorialRuntimeOptions): Gentor
       if (!active || active.sequence !== sequence || controller.signal.aborted) return
 
       followUpRequests.delete(id)
-      state.conversation = [
-        ...state.conversation,
-        userTurn,
-        { role: 'assistant', lesson }
+      let nodeSequence = state.conversationNodes.length
+      let nodeId = `${id}:node:${nodeSequence}`
+      while (state.conversationNodes.some((node) => node.id === nodeId)) {
+        nodeId = `${id}:node:${++nodeSequence}`
+      }
+      state.conversationNodes = [
+        ...state.conversationNodes,
+        {
+          id: nodeId,
+          parentId,
+          question: content,
+          lesson,
+          createdAt: Date.now()
+        }
       ]
+      state.activeConversationNodeId = nodeId
+      state.conversation = conversationForNode(state.conversationNodes, nodeId)
       state.streamingFollowUpBlocks = []
       state.streamingFollowUpMarkdown = undefined
       state.followUpStatus = 'idle'
@@ -565,11 +741,21 @@ export function createGentorialRuntime(options: GentorialRuntimeOptions): Gentor
       }
     },
     getState(id) {
-      return readonly(mutableState(id)) as GentorialGenerationState
+      return readonly(mutableState(id)) as unknown as GentorialGenerationState
     },
     run,
     cancel,
     ask,
+    selectConversationNode(id, nodeId) {
+      const state = mutableState(id)
+      if (!state.conversationNodes.some((node) => node.id === nodeId)) return
+
+      cancelFollowUp(id)
+      state.activeConversationNodeId = nodeId
+      state.conversation = conversationForNode(state.conversationNodes, nodeId)
+      state.followUpError = undefined
+      persistGeneration(id, state)
+    },
     cancelFollowUp,
     setExpanded(id, expanded) {
       const state = mutableState(id)

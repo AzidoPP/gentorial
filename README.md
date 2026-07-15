@@ -9,7 +9,7 @@
 
 [中文文档](./README.zh-CN.md)
 
-[Technical documentation](https://minsecrus.github.io/gentorial/docs/)
+[Technical documentation](https://minsecrus.github.io/gentorial/docs/) · [Roadmap](./PLAN.md) · [Development and testing](https://minsecrus.github.io/gentorial/docs/guide/development)
 
 Gentorial is a VitePress-first framework for tutorials that combine durable, author-written knowledge with explanations generated for each learner. Authors define the facts, scope, and accuracy policies that must remain stable. Learners choose the depth, tone, narrative style, and examples that help them understand those facts.
 
@@ -225,19 +225,20 @@ pnpm dev:website  # run the project website
 pnpm build        # build all packages and applications
 pnpm typecheck    # type-check every workspace project
 pnpm test         # run the test suite
+pnpm test:e2e     # run the Playwright Chromium end-to-end suite
 ```
 
-CI runs the complete check and package dry-run matrix on Windows and Ubuntu with Node.js 22.13 and 24.
+Before the first E2E run, execute `pnpm exec playwright install chromium`. CI runs the complete check and package dry-run matrix on Windows and Ubuntu with Node.js 22.13 and 24, plus a separate Ubuntu/Chromium browser E2E job.
 
 ## Project status
 
-Gentorial `0.1.x` is the first public framework release. The core authoring, generation, preference, BYOK, VitePress, and scaffolding paths are usable, but APIs may still change before `1.0`. Production deployments should review their provider transport, privacy requirements, content policies, and generated-output evaluation strategy.
+Gentorial is currently in its public `0.x` phase. The authoring, generation, preference, BYOK, managed-server, VitePress, and scaffolding paths are usable, but APIs may still change before `1.0`. Production deployments should review access control, provider transport, privacy requirements, content policies, and generated-output evaluation strategy.
 
 See [PLAN.md](./PLAN.md) for architecture decisions and upcoming work.
 
 ## Contributing
 
-Issues and focused pull requests are welcome. For behavioral changes, include tests and run `pnpm check` before submitting.
+Issues and focused pull requests are welcome. For behavioral changes, include tests and run `pnpm check` before submitting; browser-facing changes should also run `pnpm test:e2e`. See [Development and testing](https://minsecrus.github.io/gentorial/docs/guide/development) for the full workflow.
 
 ## License
 

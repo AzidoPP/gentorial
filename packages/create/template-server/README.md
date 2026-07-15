@@ -15,6 +15,8 @@ __DEV_COMMAND__
 
 VitePress 会把 `/api/gentorial/*` 代理到本地生成服务。服务端缺少 API Key 时会立即报错，不会回退到 mock。默认情况下，生成请求使用服务端统一配置并共享缓存；学习者在 Preferences 中启用 BYOK 后会绕过服务端和共享缓存。
 
+服务启动时从本地课程配置和 Markdown 编译可信 manifest。统一服务端请求不上传正文、生成提示或概念；服务端根据课程 ID、生成位置 ID 和定义哈希重建输入。静态页面与服务端课程版本不一致时会要求刷新页面。BYOK 仍直接使用浏览器当前页面中的课程输入。
+
 ## 关键配置
 
 集中修改根目录 `gentorial.server.config.ts`：

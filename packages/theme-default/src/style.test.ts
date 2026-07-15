@@ -70,6 +70,29 @@ describe('default trigger styles', () => {
     expect(style).not.toContain('.gentorial-generated-region__label')
   })
 
+  it('renders the learning path as accessible points instead of cards', async () => {
+    const style = await readFile(new URL('../style.css', import.meta.url), 'utf8')
+    const pointRule = style.match(
+      /\.gentorial-conversation-path__point\s*\{([^}]*)\}/
+    )?.[1]
+    const dotRule = style.match(
+      /\.gentorial-conversation-path__point > span\s*\{([^}]*)\}/
+    )?.[1]
+    const tooltipRule = style.match(
+      /\.gentorial-conversation-path__tooltip\s*\{([^}]*)\}/
+    )?.[1]
+
+    expect(pointRule).toMatch(/width:\s*1\.75rem;/)
+    expect(pointRule).toMatch(/height:\s*1\.75rem;/)
+    expect(pointRule).toMatch(/background:\s*transparent;/)
+    expect(dotRule).toMatch(/width:\s*0\.5rem;/)
+    expect(dotRule).toMatch(/border-radius:\s*50%;/)
+    expect(tooltipRule).toMatch(/opacity:\s*0;/)
+    expect(style).toMatch(
+      /\.gentorial-conversation-path__point:hover \+ \.gentorial-conversation-path__tooltip/
+    )
+  })
+
   it('matches the website preference card geometry and controls', async () => {
     const style = await readFile(new URL('../style.css', import.meta.url), 'utf8')
 

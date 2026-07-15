@@ -84,6 +84,17 @@ function findVNode(vnode: VNode, predicate: (candidate: VNode) => boolean): VNod
   return undefined
 }
 
+function findVNodes(vnode: VNode, predicate: (candidate: VNode) => boolean): VNode[] {
+  const matches = predicate(vnode) ? [vnode] : []
+  if (!Array.isArray(vnode.children)) return matches
+
+  for (const child of vnode.children) {
+    if (typeof child !== 'object' || child === null) continue
+    matches.push(...findVNodes(child as VNode, predicate))
+  }
+  return matches
+}
+
 function hasClass(vnode: VNode, className: string): boolean {
   const value = vnode.props?.class
   return Array.isArray(value)
@@ -260,14 +271,16 @@ describe('GentorialGeneratedRegion', () => {
 
     await runtime.run(spec.id)
     let region = render()
-    expect(vnodeChildren(region)).toHaveLength(2)
+    expect(vnodeChildren(region)).toHaveLength(3)
     expect(vnodeChildren(region)[0]?.type).toBe(LessonBlockRenderer)
     expect(region.props?.onClick).toBeUndefined()
     expect(region.props?.onKeydown).toBeUndefined()
     expect(region.props?.tabindex).toBeUndefined()
     const input = findVNode(region, (candidate) => candidate.type === 'input')
     const label = findVNode(region, (candidate) => candidate.type === 'label')
-    const initialSubmit = findVNode(region, (candidate) => candidate.type === 'button')
+    const initialSubmit = findVNode(region, (candidate) =>
+      hasClass(candidate, 'gentorial-generated-region__follow-up-submit')
+    )
     expect(input).toBeDefined()
     expect(input?.props?.placeholder).toBe('继续追问…')
     expect(label?.props?.for).toBe(input?.props?.id)
@@ -283,7 +296,9 @@ describe('GentorialGeneratedRegion', () => {
       currentTarget: { value: '为什么 B 之后会出现 C？' }
     })
     region = render()
-    const submit = findVNode(region, (candidate) => candidate.type === 'button')
+    const submit = findVNode(region, (candidate) =>
+      hasClass(candidate, 'gentorial-generated-region__follow-up-submit')
+    )
     expect(submit?.props?.disabled).toBe(false)
     invoke(submit!, 'onClick')
 
@@ -298,9 +313,9 @@ describe('GentorialGeneratedRegion', () => {
 
     region = render()
     expect(findVNode(region, (candidate) => candidate.type === 'input')?.props?.value).toBe('')
-    expect(findVNode(region, (candidate) => candidate.type === 'button')?.props?.disabled).toBe(
-      true
-    )
+    expect(findVNode(region, (candidate) =>
+      hasClass(candidate, 'gentorial-generated-region__follow-up-submit')
+    )?.props?.disabled).toBe(true)
     expect(visibleVNodeText(region)).not.toContain('为什么 B 之后会出现 C？')
     expect(visibleVNodeText(region)).not.toContain('生成')
 
@@ -320,7 +335,26 @@ describe('GentorialGeneratedRegion', () => {
       { type: 'paragraph', text: '因为 C 延续了 B 的系统编程目标。' }
     ])
     expect(findVNode(region, (candidate) => candidate.type === 'input')).toBeDefined()
-    expect(visibleVNodeText(region)).toBe('发送')
+    expect(visibleVNodeText(region)).toBe('学习路径发送')
+
+    invoke(findVNode(region, (candidate) =>
+      hasClass(candidate, 'gentorial-conversation-path__toggle')
+    )!, 'onClick')
+    region = render()
+    const points = findVNodes(region, (candidate) =>
+      hasClass(candidate, 'gentorial-conversation-path__point')
+    )
+    const tooltips = findVNodes(region, (candidate) =>
+      hasClass(candidate, 'gentorial-conversation-path__tooltip')
+    )
+    expect(points).toHaveLength(2)
+    expect(points[0]?.props?.['aria-label']).toBe('初始内容')
+    expect(points[1]?.props?.['aria-label']).toBe('为什么 B 之后会出现 C？')
+    expect(tooltips.map((tooltip) => tooltip.children)).toEqual([
+      '初始内容',
+      '为什么 B 之后会出现 C？'
+    ])
+    expect(points[1]?.props?.['aria-current']).toBe('step')
   })
 
   it('submits with Enter and cancels a pending follow-up with Escape', async () => {
@@ -402,7 +436,7 @@ describe('GentorialGeneratedRegion', () => {
 
     region = render()
     expect(hasClass(region, 'gentorial-generated-region--error')).toBe(true)
-    expect(visibleVNodeText(region)).toBe('provider failed visibly发送')
+    expect(visibleVNodeText(region)).toBe('provider failed visibly学习路径发送')
     const errorMessage = findVNode(region, (candidate) =>
       hasClass(candidate, 'gentorial-generated-region__follow-up-error')
     )
@@ -474,9 +508,9 @@ describe('GentorialGeneratedRegion', () => {
     const refreshing = runtime.run(spec.id)
     region = render()
     expect(findVNode(region, (candidate) => candidate.type === 'input')?.props?.value).toBe('')
-    expect(findVNode(region, (candidate) => candidate.type === 'button')?.props?.disabled).toBe(
-      true
-    )
+    expect(findVNode(region, (candidate) =>
+      hasClass(candidate, 'gentorial-generated-region__follow-up-submit')
+    )?.props?.disabled).toBe(true)
 
     resolveReplacement(lesson('replacement'))
     await refreshing

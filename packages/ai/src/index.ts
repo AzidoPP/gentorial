@@ -9,6 +9,7 @@ export type {
 } from './byok.js'
 export { createGenerationPipeline, createRemoteGenerator } from './pipeline.js'
 export {
+  createGentorialGenerationDefinitionHash,
   createGentorialGenerationCacheKey,
   createGentorialGenerationHandler,
   createMemoryGenerationCache,
@@ -20,6 +21,7 @@ export type {
   GentorialGenerationCacheOptions,
   GentorialGenerationCacheStore,
   GentorialGenerationHandlerOptions,
+  GentorialGenerationLimits,
   GentorialGenerationMode,
   GentorialGenerationRequest,
   GentorialMemoryGenerationCacheOptions,

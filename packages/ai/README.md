@@ -9,7 +9,7 @@ const generator = createBrowserByokGenerator({
   provider: 'openai',
   apiKey: sessionKey,
   model: 'gpt-5.1'
-})
+}, { maxOutputTokens: 4096 })
 const lesson = await generator.generate(input)
 ```
 
@@ -39,6 +39,7 @@ import { createGentorialGenerationHandler } from '@gentorial/ai'
 
 const handleGeneration = createGentorialGenerationHandler({
   generator: providerGenerator,
+  manifests: courseManifest,
   authorize(request) {
     return request.headers.get('authorization') === `Bearer ${process.env.GENTORIAL_TOKEN}`
   }
@@ -61,6 +62,10 @@ const generator = createGentorialServerGenerator({
 
 客户端和 handler 会自动协商 JSON 或 SSE。取消浏览器读取会中止服务端 generator；服务端错误只返回错误消息，不返回堆栈。`authorize` 仅负责端点访问控制，不检查或评价生成内容。
 
+托管请求不会上传完整 `GenerationInput`。客户端只发送课程 ID、生成位置 ID、作者定义哈希、学习者偏好和追问；handler 从可信 `manifests` 中取得正文、提示词与概念并重建输入。完整 input 旧协议直接返回 `400`，页面与服务端定义不一致返回 `409`。
+
+handler 默认在调用模型和读取缓存前限制原始请求大小、可信输入字符数和追问次数，并同时限制普通与流式输出字符数。可通过 `limits` 覆盖，或设为 `false` 关闭。`createProviderGenerator` / `createBrowserByokGenerator` 的 `maxOutputTokens` 会转换成各提供方对应参数；字符预算保持确定性，不作为精确 token 用量展示。
+
 ### 服务端统一配置与共享生成缓存
 
 服务端应通过 `createProviderGenerator` 读取环境变量中的统一密钥，并在 handler 上配置共享缓存。缓存键会对完整 `GenerationInput` 做稳定序列化和 SHA-256：课程内容、生成区域、概念锚点、学习者偏好和追问上下文任一变化都会产生新条目。`namespace` 用来标识输入之外的服务端生成配置，必须覆盖提供方、模型、生成参数、提示版本和输出协议版本，但不要放入原始 API Key。
@@ -80,6 +85,7 @@ const provider = createProviderGenerator({
 
 const handleGeneration = createGentorialGenerationHandler({
   generator: provider,
+  manifests: courseManifest,
   cache: {
     namespace: 'openai:gpt-5.6-terra:temperature-default:prompt-v1:lesson-v1',
     store: createMemoryGenerationCache({

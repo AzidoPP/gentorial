@@ -1,11 +1,25 @@
-import type { GeneratedLesson, LessonBlock } from '@gentorial/core'
+import {
+  learnerProfileSchema,
+  lessonConversationTurnSchema,
+  type CourseDefinition,
+  type CourseManifest,
+  type GeneratedLesson,
+  type LearnerProfile,
+  type LessonBlock,
+  type LessonConversationTurn
+} from '@gentorial/core'
 import type { GenerationInput, Generator } from './types.js'
 
 export type GentorialGenerationMode = 'generate' | 'stream'
 
 export type GentorialGenerationRequest = {
+  schemaVersion: '1'
   mode: GentorialGenerationMode
-  input: GenerationInput
+  courseId: string
+  generateId: string
+  definitionHash: string
+  learner?: LearnerProfile
+  conversation?: LessonConversationTurn[]
 }
 
 export type GentorialServerGeneratorOptions = {
@@ -21,9 +35,39 @@ export type GentorialGenerationAuthorization = (
 
 export type GentorialGenerationHandlerOptions = {
   generator: Generator
+  manifests: CourseManifest | readonly CourseManifest[]
   authorize?: GentorialGenerationAuthorization
   headers?: HeadersInit
   cache?: GentorialGenerationCacheOptions
+  /** Set to false to disable framework limits. Infrastructure limits should still apply. */
+  limits?: GentorialGenerationLimits | false
+}
+
+export type GentorialGenerationLimits = {
+  maxRequestBytes?: number
+  maxInputCharacters?: number
+  maxFollowUps?: number
+  maxOutputCharacters?: number
+}
+
+type ResolvedGenerationLimits = Required<GentorialGenerationLimits>
+
+function normalizedLimit(value: number | undefined, fallback: number, minimum = 1): number {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Math.max(minimum, Math.floor(value))
+    : fallback
+}
+
+function resolveGenerationLimits(
+  limits: GentorialGenerationLimits | false | undefined
+): ResolvedGenerationLimits | undefined {
+  if (limits === false) return undefined
+  return {
+    maxRequestBytes: normalizedLimit(limits?.maxRequestBytes, 256_000),
+    maxInputCharacters: normalizedLimit(limits?.maxInputCharacters, 200_000),
+    maxFollowUps: normalizedLimit(limits?.maxFollowUps, 20, 0),
+    maxOutputCharacters: normalizedLimit(limits?.maxOutputCharacters, 64_000)
+  }
 }
 
 export type GentorialGenerationCacheStore = {
@@ -160,6 +204,10 @@ function lessonMarkdown(lesson: GeneratedLesson): string {
   return lesson.markdown ?? lesson.blocks.map(blockMarkdown).join('\n\n')
 }
 
+function generationOutputCharacters(lesson: GeneratedLesson): number {
+  return Math.max(lessonMarkdown(lesson).length, JSON.stringify(lesson).length)
+}
+
 function canonicalValue(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(canonicalValue)
   if (!value || typeof value !== 'object') return value
@@ -170,6 +218,44 @@ function canonicalValue(value: unknown): unknown {
       .sort(([left], [right]) => left.localeCompare(right))
       .map(([key, nested]) => [key, canonicalValue(nested)])
   )
+}
+
+function courseWithoutPlugins(course: CourseDefinition | CourseManifest['course']): CourseDefinition {
+  const { plugins: _plugins, ...trustedCourse } = course
+  return trustedCourse
+}
+
+async function sha256(value: unknown): Promise<string> {
+  const subtle = globalThis.crypto?.subtle
+  if (!subtle) throw new Error('SHA-256 is unavailable in this environment')
+  const canonical = JSON.stringify(canonicalValue(value))
+  const digest = await subtle.digest('SHA-256', new TextEncoder().encode(canonical))
+  return [...new Uint8Array(digest)]
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('')
+}
+
+/** Identifies the author-controlled course, section, prompt, and concepts. */
+export async function createGentorialGenerationDefinitionHash(
+  input: GenerationInput
+): Promise<string> {
+  const { source: _generateSource, scope, trigger, ...generate } = input.generate
+  const hash = await sha256({
+    course: courseWithoutPlugins(input.course),
+    generate: {
+      ...generate,
+      scope: {
+        type: scope.type,
+        id: scope.id,
+        heading: scope.heading,
+        level: scope.level,
+        markdown: scope.markdown
+      },
+      trigger: { type: trigger.type }
+    },
+    concepts: input.concepts.map(({ source: _source, ...concept }) => concept)
+  })
+  return `sha256:${hash}`
 }
 
 export async function createGentorialGenerationCacheKey(
@@ -243,7 +329,8 @@ function streamResponse(
   options: GentorialGenerationHandlerOptions,
   input: GenerationInput,
   request: Request,
-  cacheKey?: string
+  cacheKey?: string,
+  limits?: ResolvedGenerationLimits
 ): Response {
   const encoder = new TextEncoder()
   const generation = new AbortController()
@@ -263,6 +350,9 @@ function streamResponse(
           let markdown = ''
           for await (const text of options.generator.stream(input, { signal: generation.signal })) {
             markdown += text
+            if (limits && markdown.length > limits.maxOutputCharacters) {
+              throw new Error(`Generation output exceeds ${limits.maxOutputCharacters} characters`)
+            }
             send('delta', { text })
           }
           if (markdown && cacheKey) {
@@ -278,7 +368,11 @@ function streamResponse(
           }
         } else {
           const lesson = await options.generator.generate(input, { signal: generation.signal })
-          send('delta', { text: lessonMarkdown(lesson) })
+          const markdown = lessonMarkdown(lesson)
+          if (limits && markdown.length > limits.maxOutputCharacters) {
+            throw new Error(`Generation output exceeds ${limits.maxOutputCharacters} characters`)
+          }
+          send('delta', { text: markdown })
           if (cacheKey) await writeCachedLesson(options, cacheKey, lesson)
         }
         send('done', {})
@@ -358,12 +452,95 @@ async function writeCachedLesson(
 
 function generationRequest(value: unknown): GentorialGenerationRequest | undefined {
   if (!value || typeof value !== 'object') return undefined
+  const allowedKeys = new Set([
+    'schemaVersion',
+    'mode',
+    'courseId',
+    'generateId',
+    'definitionHash',
+    'learner',
+    'conversation'
+  ])
+  if (Object.keys(value).some((key) => !allowedKeys.has(key))) return undefined
+  const schemaVersion = Reflect.get(value, 'schemaVersion')
   const mode = Reflect.get(value, 'mode')
-  const input = Reflect.get(value, 'input')
-  if ((mode !== 'generate' && mode !== 'stream') || !input || typeof input !== 'object') {
+  const courseId = Reflect.get(value, 'courseId')
+  const generateId = Reflect.get(value, 'generateId')
+  const definitionHash = Reflect.get(value, 'definitionHash')
+  const learner = Reflect.get(value, 'learner')
+  const conversation = Reflect.get(value, 'conversation')
+  if (
+    schemaVersion !== '1'
+    || (mode !== 'generate' && mode !== 'stream')
+    || typeof courseId !== 'string'
+    || !/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/iu.test(courseId)
+    || typeof generateId !== 'string'
+    || !/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/iu.test(generateId)
+    || typeof definitionHash !== 'string'
+    || !/^sha256:[a-f0-9]{64}$/u.test(definitionHash)
+    || (learner !== undefined && !learnerProfileSchema.safeParse(learner).success)
+    || (conversation !== undefined && (
+      !Array.isArray(conversation)
+      || conversation.some((turn) => !lessonConversationTurnSchema.safeParse(turn).success)
+    ))
+  ) {
     return undefined
   }
-  return { mode, input: input as GenerationInput }
+  return {
+    schemaVersion: '1',
+    mode,
+    courseId,
+    generateId,
+    definitionHash,
+    ...(learner !== undefined ? { learner: learner as LearnerProfile } : {}),
+    ...(conversation !== undefined
+      ? { conversation: conversation as LessonConversationTurn[] }
+      : {})
+  }
+}
+
+function trustedManifestMap(
+  configured: CourseManifest | readonly CourseManifest[]
+): Map<string, CourseManifest> {
+  const manifests = Array.isArray(configured) ? configured : [configured]
+  const byCourseId = new Map<string, CourseManifest>()
+  for (const manifest of manifests) {
+    if (byCourseId.has(manifest.course.id)) {
+      throw new Error(`Duplicate trusted Gentorial course ${manifest.course.id}`)
+    }
+    byCourseId.set(manifest.course.id, manifest)
+  }
+  return byCourseId
+}
+
+async function trustedInput(
+  manifests: Map<string, CourseManifest>,
+  request: GentorialGenerationRequest
+): Promise<{ input?: GenerationInput; status?: number; error?: string }> {
+  const manifest = manifests.get(request.courseId)
+  if (!manifest) return { status: 404, error: 'Unknown Gentorial course' }
+  const generate = manifest.generates.find((candidate) => candidate.id === request.generateId)
+  if (!generate) return { status: 404, error: 'Unknown Gentorial generation target' }
+
+  const concepts = generate.concepts.map((conceptId) =>
+    manifest.concepts.find((concept) => concept.id === conceptId)
+  )
+  if (concepts.some((concept) => !concept)) {
+    return { status: 500, error: 'Trusted Gentorial manifest has missing concepts' }
+  }
+
+  const input: GenerationInput = {
+    course: courseWithoutPlugins(manifest.course),
+    generate,
+    concepts: concepts.filter((concept) => concept !== undefined),
+    ...(request.learner ? { learner: request.learner } : {}),
+    ...(request.conversation ? { conversation: request.conversation } : {})
+  }
+  const expectedHash = await createGentorialGenerationDefinitionHash(input)
+  if (expectedHash !== request.definitionHash) {
+    return { status: 409, error: 'Gentorial course content changed; refresh the page and retry' }
+  }
+  return { input }
 }
 
 export function createGentorialServerGenerator(
@@ -374,20 +551,38 @@ export function createGentorialServerGenerator(
 
   return {
     async generate(input, context = {}) {
+      const request: GentorialGenerationRequest = {
+        schemaVersion: '1',
+        mode: 'generate',
+        courseId: input.course.id,
+        generateId: input.generate.id,
+        definitionHash: await createGentorialGenerationDefinitionHash(input),
+        ...(input.learner ? { learner: input.learner } : {}),
+        ...(input.conversation ? { conversation: input.conversation } : {})
+      }
       const response = await postGeneration(
         options,
         fetchImplementation,
-        { mode: 'generate', input },
+        request,
         context.signal
       )
       if (!response.ok) throw await responseError(response)
       return response.json() as Promise<GeneratedLesson>
     },
     async *stream(input, context = {}) {
+      const request: GentorialGenerationRequest = {
+        schemaVersion: '1',
+        mode: 'stream',
+        courseId: input.course.id,
+        generateId: input.generate.id,
+        definitionHash: await createGentorialGenerationDefinitionHash(input),
+        ...(input.learner ? { learner: input.learner } : {}),
+        ...(input.conversation ? { conversation: input.conversation } : {})
+      }
       const response = await postGeneration(
         options,
         fetchImplementation,
-        { mode: 'stream', input },
+        request,
         context.signal
       )
       if (!response.ok) throw await responseError(response)
@@ -407,6 +602,8 @@ export function createGentorialServerGenerator(
 export function createGentorialGenerationHandler(
   options: GentorialGenerationHandlerOptions
 ): (request: Request) => Promise<Response> {
+  const manifests = trustedManifestMap(options.manifests)
+  const limits = resolveGenerationLimits(options.limits)
   return async (request) => {
     if (request.method !== 'POST') {
       const headers = responseHeaders(options)
@@ -420,26 +617,66 @@ export function createGentorialGenerationHandler(
       if (!authorization) return jsonResponse(options, { error: 'Unauthorized' }, 401)
     }
 
+    const declaredLength = Number(request.headers.get('content-length'))
+    if (limits && Number.isFinite(declaredLength) && declaredLength > limits.maxRequestBytes) {
+      return jsonResponse(options, { error: 'Generation request is too large' }, 413)
+    }
+
     let body: GentorialGenerationRequest | undefined
     try {
-      body = generationRequest(await request.json())
+      const raw = await request.text()
+      if (limits && new TextEncoder().encode(raw).byteLength > limits.maxRequestBytes) {
+        return jsonResponse(options, { error: 'Generation request is too large' }, 413)
+      }
+      body = generationRequest(JSON.parse(raw))
     } catch {
       body = undefined
     }
     if (!body) return jsonResponse(options, { error: 'Invalid generation request' }, 400)
 
-    const cacheKey = await generationCacheKey(options, body.input)
+    const trusted = await trustedInput(manifests, body)
+    if (!trusted.input) {
+      return jsonResponse(options, { error: trusted.error ?? 'Invalid generation request' }, trusted.status ?? 400)
+    }
+    const input = trusted.input
+
+    if (limits) {
+      const followUps = input.conversation?.filter((turn) => turn.role === 'user').length ?? 0
+      if (followUps > limits.maxFollowUps) {
+        return jsonResponse(
+          options,
+          { error: `Generation conversation exceeds ${limits.maxFollowUps} follow-ups` },
+          413
+        )
+      }
+      if (JSON.stringify(input).length > limits.maxInputCharacters) {
+        return jsonResponse(
+          options,
+          { error: `Generation input exceeds ${limits.maxInputCharacters} characters` },
+          413
+        )
+      }
+    }
+
+    const cacheKey = await generationCacheKey(options, input)
     const cached = cacheKey ? await readCachedLesson(options, cacheKey) : undefined
-    if (cached) {
+    if (cached && (!limits || generationOutputCharacters(cached) <= limits.maxOutputCharacters)) {
       return body.mode === 'stream'
         ? cachedStreamResponse(options, cached)
         : jsonResponse(options, cached, 200, 'hit')
     }
 
-    if (body.mode === 'stream') return streamResponse(options, body.input, request, cacheKey)
+    if (body.mode === 'stream') return streamResponse(options, input, request, cacheKey, limits)
 
     try {
-      const lesson = await options.generator.generate(body.input, { signal: request.signal })
+      const lesson = await options.generator.generate(input, { signal: request.signal })
+      if (limits && generationOutputCharacters(lesson) > limits.maxOutputCharacters) {
+        return jsonResponse(
+          options,
+          { error: `Generation output exceeds ${limits.maxOutputCharacters} characters` },
+          502
+        )
+      }
       if (cacheKey) await writeCachedLesson(options, cacheKey, lesson)
       return jsonResponse(options, lesson, 200, cacheKey ? 'miss' : 'bypass')
     } catch (error) {

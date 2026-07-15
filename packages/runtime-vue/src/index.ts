@@ -13,6 +13,8 @@ export {
 } from './runtime.js'
 export type {
   GentorialByokSession,
+  GentorialConversationNode,
+  GentorialContextBudget,
   GentorialFollowUpStatus,
   GentorialGenerationState,
   GentorialGenerationStatus,

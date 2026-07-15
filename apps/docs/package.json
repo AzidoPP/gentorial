@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@gentorial/ai": "workspace:^",
+    "@gentorial/content": "workspace:^",
     "@gentorial/core": "workspace:^",
     "@gentorial/engine-vitepress": "workspace:^",
     "@gentorial/runtime-vue": "workspace:^",

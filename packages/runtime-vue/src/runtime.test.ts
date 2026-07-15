@@ -400,6 +400,64 @@ describe('createGentorialRuntime', () => {
     })
   })
 
+  it('creates a sibling path when asking from a selected earlier node', async () => {
+    const base = lesson('base')
+    const firstReply = lesson('first answer')
+    const branchReply = lesson('branch answer')
+    const generate = vi.fn()
+      .mockResolvedValueOnce(base)
+      .mockResolvedValueOnce(firstReply)
+      .mockResolvedValueOnce(branchReply)
+    const runtime = createGentorialRuntime({ generate })
+    runtime.register({ generate: spec, concepts: [concept] })
+
+    await runtime.run(spec.id)
+    await runtime.ask(spec.id, '第一条路径')
+    const afterFirst = runtime.getState(spec.id)
+    const rootId = afterFirst.rootConversationNodeId!
+    const firstNodeId = afterFirst.activeConversationNodeId!
+
+    runtime.selectConversationNode(spec.id, rootId)
+    expect(runtime.getState(spec.id).conversation).toEqual([])
+    await runtime.ask(spec.id, '另一条路径')
+
+    expect(generate.mock.calls[2]?.[0].conversation).toEqual([
+      { role: 'assistant', lesson: base },
+      { role: 'user', content: '另一条路径' }
+    ])
+    const state = runtime.getState(spec.id)
+    expect(state.conversationNodes).toHaveLength(3)
+    expect(state.conversationNodes.filter((node) => node.parentId === rootId)).toHaveLength(2)
+    expect(state.activeConversationNodeId).not.toBe(firstNodeId)
+    expect(state.conversation).toEqual([
+      { role: 'user', content: '另一条路径' },
+      { role: 'assistant', lesson: branchReply }
+    ])
+  })
+
+  it('rejects an over-budget follow-up without trimming or mutating the path', async () => {
+    const generate = vi.fn()
+      .mockResolvedValueOnce(lesson('base'))
+      .mockResolvedValueOnce(lesson('first answer'))
+    const runtime = createGentorialRuntime({
+      generate,
+      contextBudget: { maxFollowUps: 1, maxCharacters: 100_000 }
+    })
+    runtime.register({ generate: spec, concepts: [concept] })
+
+    await runtime.run(spec.id)
+    await runtime.ask(spec.id, '第一次追问')
+    const completedPath = [...runtime.getState(spec.id).conversation]
+    await runtime.ask(spec.id, '超出限制的追问')
+
+    expect(generate).toHaveBeenCalledTimes(2)
+    expect(runtime.getState(spec.id)).toMatchObject({
+      followUpStatus: 'error',
+      followUpError: '当前学习路径最多允许 1 次追问',
+      conversation: completedPath
+    })
+  })
+
   it('keeps each follow-up lesson exactly as returned by the generator', async () => {
     const followUp = {
       ...lesson('grounded follow-up'),

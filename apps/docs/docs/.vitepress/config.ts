@@ -30,7 +30,8 @@ export default defineConfig({
         items: [
           { text: '文档首页', link: '/' },
           { text: '快速开始', link: '/guide/getting-started' },
-          { text: '编写教程', link: '/guide/authoring' }
+          { text: '编写教程', link: '/guide/authoring' },
+          { text: '开发与测试', link: '/guide/development' }
         ]
       },
       {

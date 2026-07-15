@@ -1,10 +1,17 @@
-import { defineCourse, type ConceptSpec, type GeneratedLesson, type GenerateSpec } from '@gentorial/core'
+import {
+  defineCourse,
+  type ConceptSpec,
+  type CourseManifest,
+  type GeneratedLesson,
+  type GenerateSpec
+} from '@gentorial/core'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
   createFileGenerationCache,
+  createGentorialGenerationDefinitionHash,
   createGentorialServer,
   createGentorialServerGenerator,
   type GenerationInput
@@ -60,6 +67,13 @@ const lesson: GeneratedLesson = {
   blocks: [{ type: 'paragraph', text: '服务端生成结果' }],
   grounding: { conceptIds: [concept.id], sourceIds: [generate.scope.id] }
 }
+const manifest: CourseManifest = {
+  schemaVersion: '1',
+  course: input.course,
+  concepts: input.concepts,
+  generates: [input.generate],
+  contentHash: 'test-content-hash'
+}
 
 function handlerFetch(handler: (request: Request) => Promise<Response>): typeof fetch {
   return async (resource, init) => {
@@ -74,6 +88,7 @@ describe('@gentorial/server', () => {
       choices: [{ message: { content: JSON.stringify(lesson) } }]
     }), { headers: { 'content-type': 'application/json' } }))
     const server = createGentorialServer({
+      manifests: manifest,
       provider: {
         provider: 'openai',
         apiKey: 'server-only-secret',
@@ -103,6 +118,7 @@ describe('@gentorial/server', () => {
     temporaryDirectories.push(directory)
     const firstGenerate = vi.fn(async () => lesson)
     const first = createGentorialServer({
+      manifests: manifest,
       generator: { generate: firstGenerate },
       generationProfile: 'test-provider:model-a:prompt-v1',
       cache: { store: createFileGenerationCache({ directory }) }
@@ -115,6 +131,7 @@ describe('@gentorial/server', () => {
 
     const secondGenerate = vi.fn(async () => ({ ...lesson, markdown: '不应生成' }))
     const second = createGentorialServer({
+      manifests: manifest,
       generator: { generate: secondGenerate },
       generationProfile: 'test-provider:model-a:prompt-v1',
       cache: { store: createFileGenerationCache({ directory }) }
@@ -132,14 +149,23 @@ describe('@gentorial/server', () => {
   it('can explicitly disable shared caching', async () => {
     const generateLesson = vi.fn(async () => lesson)
     const server = createGentorialServer({
+      manifests: manifest,
       generator: { generate: generateLesson },
       generationProfile: 'test-provider:model-a:prompt-v1',
       cache: false
     })
+    const body = {
+      schemaVersion: '1',
+      mode: 'generate',
+      courseId: input.course.id,
+      generateId: input.generate.id,
+      definitionHash: await createGentorialGenerationDefinitionHash(input),
+      learner: input.learner
+    }
     const request = () => new Request('https://tutorial.example/api/gentorial/generate', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ mode: 'generate', input })
+      body: JSON.stringify(body)
     })
 
     expect((await server.handle(request())).headers.get('x-gentorial-cache')).toBe('bypass')

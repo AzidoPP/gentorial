@@ -40,10 +40,12 @@ pnpm server
 
 - 服务端 Key 只存在于平台环境变量。
 - 生成端点已经鉴权、限流并设置配额。
+- 已根据模型上下文窗口和成本设置输入、追问、输出与 Provider token 上限。
 - `profileRevision` 与当前 Prompt 和输出协议一致。
 - 多实例使用共享缓存存储。
 - 日志不记录 API Key 或完整敏感输入。
 - VitePress 原文在生成服务不可用时仍然可阅读。
+- 静态站点与生成服务使用同一版本的课程内容；定义哈希不一致时服务端返回 `409`。
 
 ::: generate deployment-review kind=exercise concepts=deployment-origin
 根据本页原文生成一份生产部署审查题，重点检查密钥边界、反向代理、访问控制和多实例缓存。

@@ -1,10 +1,21 @@
 import { serve } from '@hono/node-server'
+import { compileCourseDirectory } from '@gentorial/content/node'
 import {
   createFileGenerationCache,
   createGentorialServer
 } from '@gentorial/server'
 import { Hono } from 'hono'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import course from '../course.config.js'
 import serverConfig from '../gentorial.server.config.js'
+
+const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+const compiled = await compileCourseDirectory({ rootDir, course })
+const contentErrors = compiled.diagnostics.filter((diagnostic) => diagnostic.severity === 'error')
+if (contentErrors.length > 0) {
+  throw new Error(contentErrors.map((diagnostic) => diagnostic.message).join('\n'))
+}
 
 const apiKey = process.env[serverConfig.apiKeyEnv]?.trim()
 if (!apiKey) {
@@ -30,6 +41,7 @@ const generationProfile = [
 ].join(':')
 
 const gentorial = createGentorialServer({
+  manifests: compiled.manifest,
   provider,
   generationProfile,
   cache: {

@@ -97,6 +97,7 @@ describe('createGentorialProject', () => {
     expect(packageJson.scripts.dev).toContain('concurrently')
     expect(packageJson.scripts['dev:server']).toContain('server/index.ts')
     expect(packageJson.dependencies).toMatchObject({
+      '@gentorial/content': '^0.1.0',
       '@gentorial/server': '^0.1.0',
       '@hono/node-server': expect.any(String),
       hono: expect.any(String)
@@ -107,6 +108,8 @@ describe('createGentorialProject', () => {
     expect(serverConfig).toContain("apiKeyEnv: 'OPENAI_API_KEY'")
     expect(serverConfig).toContain('profileRevision:')
     expect(serverSource).toContain('createGentorialServer')
+    expect(serverSource).toContain('compileCourseDirectory')
+    expect(serverSource).toContain('manifests: compiled.manifest')
     expect(serverSource).toContain('createFileGenerationCache')
     expect(themeSource).toContain('createGentorialServerGenerator')
     expect(themeSource).not.toContain('createMockGenerator')

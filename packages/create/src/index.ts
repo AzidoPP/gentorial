@@ -150,6 +150,7 @@ export async function createGentorialProject(
     }
     packageJson.dependencies = {
       ...packageJson.dependencies,
+      '@gentorial/content': '^0.1.0',
       '@gentorial/server': '^0.1.0',
       '@hono/node-server': '^2.0.9',
       hono: '^4.12.30',

@@ -16,6 +16,7 @@
     "build:docs": "pnpm --filter @gentorial/docs build",
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "vitest run",
+    "test:e2e": "playwright test",
     "test:watch": "vitest",
     "check": "pnpm build && pnpm typecheck && pnpm test",
     "changeset": "changeset",
@@ -24,6 +25,7 @@
   },
   "devDependencies": {
     "@changesets/cli": "^2.31.0",
+    "@playwright/test": "^1.61.1",
     "@types/node": "^26.1.1",
     "tsup": "^8.5.1",
     "typescript": "^7.0.2",

@@ -142,7 +142,7 @@ describe('createBrowserByokGenerator', () => {
     }))
     const generator = createBrowserByokGenerator(
       { provider, apiKey: 'test-secret', model: 'test-model', baseUrl },
-      { fetch: fetchMock as typeof fetch }
+      { fetch: fetchMock as typeof fetch, maxOutputTokens: 321 }
     )
 
     const lesson = await generator.generate(input)
@@ -153,6 +153,12 @@ describe('createBrowserByokGenerator', () => {
     expect(requestUrl).toBe(url)
     expect((init as RequestInit).headers).toMatchObject({ [header]: expect.stringContaining('test-secret') })
     expect((init as RequestInit).body).not.toContain('test-secret')
+    const body = JSON.parse((init as RequestInit).body as string) as Record<string, unknown>
+    if (provider === 'openai') expect(body.max_completion_tokens).toBe(321)
+    if (provider === 'custom' || provider === 'anthropic') expect(body.max_tokens).toBe(321)
+    if (provider === 'google') {
+      expect(body.generationConfig).toMatchObject({ maxOutputTokens: 321 })
+    }
   })
 
   it('streams OpenAI-compatible Markdown chunks without custom-container instructions', async () => {

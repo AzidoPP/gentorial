@@ -5,6 +5,7 @@ import {
   Check,
   Copy,
   FileCode,
+  ListTree,
   Maximize2,
   Minimize2,
   RefreshCw,
@@ -28,7 +29,11 @@ import {
   type VNode,
   type VNodeChild
 } from 'vue'
-import { gentorialRuntimeKey, type GentorialGenerationStatus } from './runtime.js'
+import {
+  gentorialRuntimeKey,
+  type GentorialConversationNode,
+  type GentorialGenerationStatus
+} from './runtime.js'
 import { gentorialMarkdownAsText, renderGentorialMarkdown } from './markdown.js'
 
 export const GentorialMarkdownRenderer = defineComponent({
@@ -469,6 +474,7 @@ export const GentorialGeneratedRegion = defineComponent({
     const runtime = inject(gentorialRuntimeKey, undefined)
     const state = computed(() => runtime?.getState(props.spec.id))
     const question = ref('')
+    const pathExpanded = ref(false)
     let unregister: (() => void) | undefined
 
     if (runtime) {
@@ -523,6 +529,63 @@ export const GentorialGeneratedRegion = defineComponent({
       }
     }
 
+    function renderConversationNode(
+      node: GentorialConversationNode,
+      childrenByParent: ReadonlyMap<string, readonly GentorialConversationNode[]>,
+      activePath: ReadonlySet<string>,
+      nodeIndexes: ReadonlyMap<string, number>
+    ): VNode {
+      const children = childrenByParent.get(node.id) ?? []
+      const active = state.value?.activeConversationNodeId === node.id
+      const label = node.question ?? '初始内容'
+      const tooltipId = `gentorial-path-${props.spec.id}-${nodeIndexes.get(node.id) ?? 0}`
+
+      return h(
+        'li',
+        {
+          key: node.id,
+          class: 'gentorial-conversation-path__node',
+          'data-on-active-path': activePath.has(node.id) ? 'true' : 'false'
+        },
+        [
+          h('div', { class: 'gentorial-conversation-path__point-wrap' }, [
+            h(
+              'button',
+              {
+                type: 'button',
+                class: 'gentorial-conversation-path__point',
+                'aria-label': label,
+                'aria-describedby': tooltipId,
+                'aria-current': active ? 'step' : undefined,
+                onClick: () => runtime?.selectConversationNode(props.spec.id, node.id)
+              },
+              h('span', { 'aria-hidden': 'true' })
+            ),
+            h(
+              'span',
+              {
+                id: tooltipId,
+                class: 'gentorial-conversation-path__tooltip',
+                role: 'tooltip'
+              },
+              label
+            )
+          ]),
+          ...(children.length > 0
+            ? [
+                h(
+                  'ul',
+                  { class: 'gentorial-conversation-path__children' },
+                  children.map((child) =>
+                    renderConversationNode(child, childrenByParent, activePath, nodeIndexes)
+                  )
+                )
+              ]
+            : [])
+        ]
+      )
+    }
+
     return () => {
       const current = state.value
       const regionId = `gentorial-generated-${props.spec.id}`
@@ -538,6 +601,7 @@ export const GentorialGeneratedRegion = defineComponent({
 
       const inputId = `gentorial-follow-up-${props.spec.id}`
       const statusId = `${inputId}-status`
+      const pathId = `gentorial-conversation-path-${props.spec.id}`
       const assistantLessons = current.conversation.flatMap((turn, index) =>
         turn.role === 'assistant'
           ? [
@@ -572,6 +636,26 @@ export const GentorialGeneratedRegion = defineComponent({
         whiteSpace: 'nowrap',
         border: '0'
       } as const
+      const childrenByParent = new Map<string, GentorialConversationNode[]>()
+      const nodesById = new Map(current.conversationNodes.map((node) => [node.id, node]))
+      const nodeIndexes = new Map(current.conversationNodes.map((node, index) => [node.id, index]))
+      for (const node of current.conversationNodes) {
+        if (!node.parentId) continue
+        const siblings = childrenByParent.get(node.parentId) ?? []
+        siblings.push(node)
+        childrenByParent.set(node.parentId, siblings)
+      }
+      const activePath = new Set<string>()
+      let pathNode = current.activeConversationNodeId
+        ? nodesById.get(current.activeConversationNodeId)
+        : undefined
+      while (pathNode && !activePath.has(pathNode.id)) {
+        activePath.add(pathNode.id)
+        pathNode = pathNode.parentId ? nodesById.get(pathNode.parentId) : undefined
+      }
+      const rootNode = current.rootConversationNodeId
+        ? nodesById.get(current.rootConversationNodeId)
+        : undefined
 
       return h(
         'section',
@@ -631,6 +715,40 @@ export const GentorialGeneratedRegion = defineComponent({
                           'aria-live': 'assertive'
                         },
                         current.followUpError
+                      )
+                    ]
+                  : []),
+                h('div', { class: 'gentorial-conversation-path__controls' }, [
+                  h(
+                    'button',
+                    {
+                      type: 'button',
+                      class: 'gentorial-conversation-path__toggle',
+                      'aria-expanded': pathExpanded.value ? 'true' : 'false',
+                      'aria-controls': pathId,
+                      onClick: () => {
+                        pathExpanded.value = !pathExpanded.value
+                      }
+                    },
+                    [h(ListTree, { 'aria-hidden': 'true' }), h('span', '学习路径')]
+                  )
+                ]),
+                ...(pathExpanded.value && rootNode
+                  ? [
+                      h(
+                        'nav',
+                        {
+                          id: pathId,
+                          class: 'gentorial-conversation-path',
+                          'aria-label': '学习路径'
+                        },
+                        [
+                          h(
+                            'ul',
+                            { class: 'gentorial-conversation-path__tree' },
+                            [renderConversationNode(rootNode, childrenByParent, activePath, nodeIndexes)]
+                          )
+                        ]
                       )
                     ]
                   : []),

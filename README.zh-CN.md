@@ -9,7 +9,7 @@
 
 [English](./README.md)
 
-[技术文档](https://minsecrus.github.io/gentorial/docs/)
+[技术文档](https://minsecrus.github.io/gentorial/docs/) · [路线图](./PLAN.md) · [开发与测试](https://minsecrus.github.io/gentorial/docs/guide/development)
 
 Gentorial 是一个以 VitePress 为基础的生成式教程框架。作者负责定义长期有效的事实、章节范围与准确性规则；学习者可以选择适合自己的详略程度、语气、叙事方式和示例类型。
 
@@ -199,6 +199,7 @@ BYOK 完全由学习者主动开启。默认界面输入的密钥只保存在当
 | [`@gentorial/core`](./packages/core) | 课程 schema、稳定协议类型与校验 |
 | [`@gentorial/content`](./packages/content) | Markdown 解析与课程 manifest 编译 |
 | [`@gentorial/ai`](./packages/ai) | 提示编译、结构化与流式生成、BYOK 与服务端适配器 |
+| [`@gentorial/server`](./packages/server) | 服务端统一凭据、生成端点与共享缓存 |
 | [`@gentorial/runtime-vue`](./packages/runtime-vue) | Vue 状态、生成生命周期、偏好与安全渲染 |
 | [`@gentorial/engine-vitepress`](./packages/engine-vitepress) | VitePress Markdown 接入与指令转换 |
 | [`@gentorial/theme-default`](./packages/theme-default) | 默认 VitePress 主题接入与样式 |
@@ -223,19 +224,20 @@ pnpm dev:website  # 启动项目官网
 pnpm build        # 构建所有包和应用
 pnpm typecheck    # 检查所有 workspace 项目的类型
 pnpm test         # 运行测试
+pnpm test:e2e     # 使用 Playwright 运行 Chromium 端到端测试
 ```
 
-CI 会在 Windows、Ubuntu 以及 Node.js 22.13、24 的矩阵中执行完整检查和 npm 包 dry-run。
+首次运行 E2E 前执行 `pnpm exec playwright install chromium`。CI 会在 Windows、Ubuntu 以及 Node.js 22.13、24 的矩阵中执行完整检查和 npm 包 dry-run，并在 Ubuntu/Chromium 中单独运行浏览器 E2E。
 
 ## 项目状态
 
-Gentorial `0.1.x` 是首个公开框架版本。作者编写、生成管线、全局偏好、BYOK、VitePress 和脚手架链路已经可用，但 `1.0` 前 API 仍可能调整。生产部署需要自行审核模型传输、隐私要求、内容策略和生成结果评估方案。
+Gentorial 当前处于公开的 `0.x` 阶段。作者编写、生成管线、全局偏好、BYOK、统一服务端、VitePress 和脚手架链路已经可用，但 `1.0` 前 API 仍可能调整。生产部署需要自行审核访问控制、模型传输、隐私要求、内容策略和生成结果评估方案。
 
 架构决策与后续计划见 [PLAN.md](./PLAN.md)。
 
 ## 参与贡献
 
-欢迎提交 Issue 和范围明确的 Pull Request。行为变更应附带测试，并在提交前运行 `pnpm check`。
+欢迎提交 Issue 和范围明确的 Pull Request。行为变更应附带测试，并在提交前运行 `pnpm check`；涉及浏览器交互时还应运行 `pnpm test:e2e`。完整说明见[开发与测试](https://minsecrus.github.io/gentorial/docs/guide/development)。
 
 ## 许可证
 
