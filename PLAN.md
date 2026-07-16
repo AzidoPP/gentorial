@@ -1,6 +1,6 @@
 # Gentorial 路线图
 
-> 本文只记录当前状态、稳定边界和后续工作。具体使用方法以[技术文档](https://minsecrus.github.io/gentorial/docs/)为准，公开 API 以各包导出和 README 为准。
+> 本文只记录当前状态、稳定边界和后续工作。具体使用方法以[技术文档](https://gentorial.github.io/gentorial/docs/)为准，公开 API 以各包导出和 README 为准。
 >
 > 更新日期：2026-07-15
 

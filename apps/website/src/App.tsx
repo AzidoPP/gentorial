@@ -19,7 +19,7 @@ type RevealStage =
   | 'description'
   | 'ready'
 
-const repositoryUrl = 'https://github.com/Minsecrus/gentorial'
+const repositoryUrl = 'https://github.com/gentorial/gentorial'
 const docsUrl = `${import.meta.env.BASE_URL}docs/`
 const readUrl = '#/read'
 const desktopLeftTarget = 'erate Y'
@@ -172,11 +172,11 @@ function SiteFooter() {
         </div>
 
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-black/40 sm:justify-end">
-          <span>© 2026 Minsecrus.</span>
+          <span>© 2026 Gentorial contributors.</span>
           <span aria-hidden="true">·</span>
           <a
             className="text-link-underline transition-colors hover:text-black"
-            href="https://github.com/Minsecrus/gentorial/blob/main/LICENSE"
+            href="https://github.com/gentorial/gentorial/blob/main/LICENSE"
             target="_blank"
             rel="noreferrer"
           >

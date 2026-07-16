@@ -2,14 +2,14 @@
 
 > Author-defined, learner-shaped tutorials.
 
-[![CI](https://github.com/Minsecrus/gentorial/actions/workflows/ci.yml/badge.svg)](https://github.com/Minsecrus/gentorial/actions/workflows/ci.yml)
+[![CI](https://github.com/gentorial/gentorial/actions/workflows/ci.yml/badge.svg)](https://github.com/gentorial/gentorial/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/@gentorial/create?label=%40gentorial%2Fcreate)](https://www.npmjs.com/package/@gentorial/create)
 [![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A522.13-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![License](https://img.shields.io/badge/license-MIT-black.svg)](./LICENSE)
 
 [中文文档](./README.zh-CN.md)
 
-[Technical documentation](https://minsecrus.github.io/gentorial/docs/) · [Roadmap](./PLAN.md) · [Development and testing](https://minsecrus.github.io/gentorial/docs/guide/development)
+[Technical documentation](https://gentorial.github.io/gentorial/docs/) · [Roadmap](./PLAN.md) · [Development and testing](https://gentorial.github.io/gentorial/docs/guide/development)
 
 Gentorial is a VitePress-first framework for tutorials that combine durable, author-written knowledge with explanations generated for each learner. Authors define the facts, scope, and accuracy policies that must remain stable. Learners choose the depth, tone, narrative style, and examples that help them understand those facts.
 
@@ -211,7 +211,7 @@ Server-managed generation can use `createProviderGenerator` with a framework-neu
 Gentorial is a pnpm workspace.
 
 ```bash
-git clone https://github.com/Minsecrus/gentorial.git
+git clone https://github.com/gentorial/gentorial.git
 cd gentorial
 pnpm install
 pnpm check
@@ -238,8 +238,8 @@ See [PLAN.md](./PLAN.md) for architecture decisions and upcoming work.
 
 ## Contributing
 
-Issues and focused pull requests are welcome. For behavioral changes, include tests and run `pnpm check` before submitting; browser-facing changes should also run `pnpm test:e2e`. See [Development and testing](https://minsecrus.github.io/gentorial/docs/guide/development) for the full workflow.
+Issues and focused pull requests are welcome. For behavioral changes, include tests and run `pnpm check` before submitting; browser-facing changes should also run `pnpm test:e2e`. See [Development and testing](https://gentorial.github.io/gentorial/docs/guide/development) for the full workflow.
 
 ## License
 
-[MIT](./LICENSE) © 2026 Minsecrus
+[MIT](./LICENSE) © 2026 Gentorial contributors

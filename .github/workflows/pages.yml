@@ -44,13 +44,16 @@ jobs:
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
+      - name: Build workspace packages
+        run: pnpm -r --filter "./packages/*" build
+
       - name: Build website
         run: pnpm --filter @gentorial/website exec vite build --base=/gentorial/
 
       - name: Build documentation
         env:
           GENTORIAL_DOCS_BASE: /gentorial/docs/
-          GENTORIAL_WEBSITE_URL: /gentorial/
+          GENTORIAL_WEBSITE_URL: https://gentorial.github.io/gentorial/
         run: pnpm --filter @gentorial/docs build
 
       - name: Add documentation to website artifact

@@ -4,7 +4,7 @@ import serverConfig from '../../gentorial.server.config.js'
 
 const docsBase = process.env.GENTORIAL_DOCS_BASE ?? '/docs/'
 const websiteUrl = process.env.GENTORIAL_WEBSITE_URL
-  ?? 'https://minsecrus.github.io/gentorial/'
+  ?? 'https://gentorial.github.io/gentorial/'
 
 export default defineConfig({
   base: docsBase,
@@ -55,11 +55,11 @@ export default defineConfig({
     outline: { label: '本页目录', level: [2, 3] },
     docFooter: { prev: '上一页', next: '下一页' },
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/Minsecrus/gentorial' }
+      { icon: 'github', link: 'https://github.com/gentorial/gentorial' }
     ],
     footer: {
       message: 'Released under the MIT License.',
-      copyright: 'Copyright © 2026 Minsecrus'
+      copyright: 'Copyright © 2026 Gentorial contributors'
     }
   },
   vite: {

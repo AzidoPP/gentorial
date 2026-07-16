@@ -2,14 +2,14 @@
 
 > 作者定义知识，学习者塑造教程。
 
-[![CI](https://github.com/Minsecrus/gentorial/actions/workflows/ci.yml/badge.svg)](https://github.com/Minsecrus/gentorial/actions/workflows/ci.yml)
+[![CI](https://github.com/gentorial/gentorial/actions/workflows/ci.yml/badge.svg)](https://github.com/gentorial/gentorial/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/@gentorial/create?label=%40gentorial%2Fcreate)](https://www.npmjs.com/package/@gentorial/create)
 [![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A522.13-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![License](https://img.shields.io/badge/license-MIT-black.svg)](./LICENSE)
 
 [English](./README.md)
 
-[技术文档](https://minsecrus.github.io/gentorial/docs/) · [路线图](./PLAN.md) · [开发与测试](https://minsecrus.github.io/gentorial/docs/guide/development)
+[技术文档](https://gentorial.github.io/gentorial/docs/) · [路线图](./PLAN.md) · [开发与测试](https://gentorial.github.io/gentorial/docs/guide/development)
 
 Gentorial 是一个以 VitePress 为基础的生成式教程框架。作者负责定义长期有效的事实、章节范围与准确性规则；学习者可以选择适合自己的详略程度、语气、叙事方式和示例类型。
 
@@ -210,7 +210,7 @@ BYOK 完全由学习者主动开启。默认界面输入的密钥只保存在当
 Gentorial 使用 pnpm workspace：
 
 ```bash
-git clone https://github.com/Minsecrus/gentorial.git
+git clone https://github.com/gentorial/gentorial.git
 cd gentorial
 pnpm install
 pnpm check
@@ -237,8 +237,8 @@ Gentorial 当前处于公开的 `0.x` 阶段。作者编写、生成管线、全
 
 ## 参与贡献
 
-欢迎提交 Issue 和范围明确的 Pull Request。行为变更应附带测试，并在提交前运行 `pnpm check`；涉及浏览器交互时还应运行 `pnpm test:e2e`。完整说明见[开发与测试](https://minsecrus.github.io/gentorial/docs/guide/development)。
+欢迎提交 Issue 和范围明确的 Pull Request。行为变更应附带测试，并在提交前运行 `pnpm check`；涉及浏览器交互时还应运行 `pnpm test:e2e`。完整说明见[开发与测试](https://gentorial.github.io/gentorial/docs/guide/development)。
 
 ## 许可证
 
-[MIT](./LICENSE) © 2026 Minsecrus
+[MIT](./LICENSE) © 2026 Gentorial contributors

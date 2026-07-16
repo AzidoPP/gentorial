@@ -8,7 +8,7 @@
 - pnpm `11.1.2`
 
 ```bash
-git clone https://github.com/Minsecrus/gentorial.git
+git clone https://github.com/gentorial/gentorial.git
 cd gentorial
 pnpm install --frozen-lockfile
 ```
